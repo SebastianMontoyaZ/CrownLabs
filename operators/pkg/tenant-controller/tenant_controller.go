@@ -103,6 +103,15 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+    created, err := r.personalWorkspace(ctx, &tn)
+    if err != nil {
+        return ctrl.Result{}, err
+    }
+    if created {
+        // Requeue to ensure the rest of the logic runs with the updated tenant
+        return ctrl.Result{Requeue: true}, nil
+    }
+
 	if tn.Labels[r.TargetLabelKey] != r.TargetLabelValue {
 		// if entered here it means that is in the reconcile
 		// which has been requed after
@@ -237,6 +246,56 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	nextRequeueDuration := randomDuration(r.RequeueTimeMinimum, r.RequeueTimeMaximum)
 	klog.Infof("Tenant %s reconciled successfully, next in %s", tn.Name, nextRequeueDuration)
 	return ctrl.Result{RequeueAfter: nextRequeueDuration}, nil
+}
+
+// ...existing code...
+
+// personalWorkspace checks if the tenant has a personal workspace, and creates it if missing.
+func (r *TenantReconciler) personalWorkspace(ctx context.Context, tn *crownlabsv1alpha2.Tenant) (bool, error) {
+    personalWsName := fmt.Sprintf("personal-%s", tn.Name)
+    hasPersonalWs := false
+    for _, ws := range tn.Spec.Workspaces {
+        if ws.Name == personalWsName {
+            hasPersonalWs = true
+            break
+        }
+    }
+    if !hasPersonalWs {
+        // Create the Workspace CR if it doesn't exist
+        ws := &crownlabsv1alpha1.Workspace{
+            ObjectMeta: metav1.ObjectMeta{
+                Name: personalWsName,
+                Labels: map[string]string{
+                    "crownlabs.polito.it/type": "personal",
+                },
+            },
+            Spec: crownlabsv1alpha1.WorkspaceSpec{
+                PrettyName: fmt.Sprintf("%s's Personal Workspace", tn.Spec.FirstName),
+				Quota: crownlabsv1alpha1.WorkspaceResourceQuota{
+					CPU:       resource.MustParse("2"),      // 2 cores
+					Memory:    resource.MustParse("4Gi"),    // 4 GiB RAM
+					Instances: 2,                            // 2 instances
+				},
+            },
+        }
+        if err := r.Client.Create(ctx, ws); err != nil && !apierrors.IsAlreadyExists(err) {
+            klog.Errorf("Failed to create personal workspace %s for tenant %s: %v", personalWsName, tn.Name, err)
+            return false, err
+        }
+
+        // Add to tenant's workspaces as manager
+        tn.Spec.Workspaces = append(tn.Spec.Workspaces, crownlabsv1alpha2.TenantWorkspaceEntry{
+            Name: personalWsName,
+            Role: crownlabsv1alpha2.Manager,
+        })
+        if err := r.Update(ctx, tn); err != nil {
+            klog.Errorf("Failed to update tenant %s with personal workspace: %v", tn.Name, err)
+            return false, err
+        }
+        // Requeue to ensure the rest of the logic runs with the updated tenant
+        return true, nil
+    }
+    return false, nil
 }
 
 // SetupWithManager registers a new controller for Tenant resources.
