@@ -3,7 +3,9 @@ import {
   DesktopOutlined,
   PlayCircleOutlined,
 } from '@ant-design/icons';
-import { Space, Tooltip, Dropdown, Menu } from 'antd';
+import { useState } from 'react';
+import { Space, Tooltip, Dropdown, Menu, Modal } from 'antd';
+import { FileTextOutlined } from '@ant-design/icons';
 import Button from 'antd-button-color';
 import { FetchResult } from '@apollo/client';
 import { FC, useContext, useMemo, useState } from 'react';
@@ -89,6 +91,15 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
     useState(false);
   const [showDeleteModalConfirm, setShowDeleteModalConfirm] = useState(false);
   const [createDisabled, setCreateDisabled] = useState(false);
+
+  const [showLogs, setShowLogs] = useState(false);
+  const [logsContent, setLogsContent] = useState('');
+
+  const fetchLogs = async () => {
+    const logs = await fetchTemplateLogs(template.id, workspace.namespace); // implement this function
+    setLogsContent(logs);
+    setShowLogs(true);
+  };
 
   const createInstanceHandler = () => {
     setCreateDisabled(true);
@@ -269,6 +280,29 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
             <Button with="link" type="warning" size="middle" className="px-0">
               Info
             </Button>
+            {workspace.name.startsWith('personal-') && workspace.role === 'manager' && (
+              <>
+                <Button onClick={() => editTemplate(template.id)}>Edit</Button>
+                <Button danger onClick={() => deleteTemplate(template.id)}>Remove</Button>
+              </>
+            )}
+            <Button
+              icon={<FileTextOutlined />}
+              onClick={fetchLogs}
+              type="default"
+              size="middle"
+            >
+              Logs
+            </Button>
+            <Modal
+              title={`Logs for ${template.name}`}
+              open={showLogs}
+              onCancel={() => setShowLogs(false)}
+              footer={null}
+              width={800}
+            >
+              <pre style={{ maxHeight: 400, overflow: 'auto' }}>{logsContent}</pre>
+            </Modal>
           </Tooltip>
           {role === WorkspaceRole.manager ? (
             <TemplatesTableRowSettings

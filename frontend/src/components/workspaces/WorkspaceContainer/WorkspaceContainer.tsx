@@ -14,6 +14,8 @@ import UserListLogic from '../../accountPage/UserListLogic/UserListLogic';
 import Box from '../../common/Box';
 import ModalCreateTemplate from '../ModalCreateTemplate';
 import { Image, Template } from '../ModalCreateTemplate/ModalCreateTemplate';
+import ModalAddTemplateYaml from '../ModalAddTemplateYaml/ModalAddTemplateYaml';
+import { useCreateTemplateFromYaml } from '../ModalAddTemplateYaml/ModalAddTemplateYamlLogic';
 import { TemplatesTableLogic } from '../Templates/TemplatesTableLogic';
 import Badge from '../../common/Badge';
 
@@ -65,6 +67,9 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
     onError: apolloErrorCatcher,
   });
 
+  const [showAddYamlModal, setShowAddYamlModal] = useState(false);
+  const { createTemplateFromYaml } = useCreateTemplateFromYaml();
+
   const [show, setShow] = useState(false);
 
   const { data: dataImages, refetch: refetchImages } = useImagesQuery({
@@ -100,6 +105,14 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
       },
     });
 
+  const handleAddTemplateYaml = async (yaml: string) => {
+    await createTemplateFromYaml({
+      yaml,
+      workspaceNamespace: workspace.namespace, // pass the correct namespace
+    });
+    setShowAddYamlModal(false);
+  };
+
   return (
     <>
       <ModalCreateTemplate
@@ -112,6 +125,11 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
         images={getImages(dataImages!)}
         submitHandler={submitHandler}
         loading={loading}
+      />
+      <ModalAddTemplateYaml
+        visible={showAddYamlModal}
+        onCancel={() => setShowAddYamlModal(false)}
+        onAdd={handleAddTemplateYaml}
       />
       <Box
         header={{
@@ -146,7 +164,7 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
             </div>
           ),
           right: workspace.role === WorkspaceRole.manager && (
-            <div className="h-full flex justify-center items-center pr-10">
+            <div className="h-full flex justify-center items-center pr-10 space-x-2">
               <Tooltip title="Create template">
                 <Button
                   onClick={() => {
@@ -159,6 +177,17 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
                   icon={<PlusOutlined />}
                 />
               </Tooltip>
+              {workspace.name.startsWith('personal-') && (
+                <Tooltip title="Add Template (YAML)">
+                  <Button
+                    type="primary"
+                    shape="circle"
+                    size="large"
+                    icon={<PlusOutlined />}
+                    onClick={() => setShowAddYamlModal(true)}
+                  />
+                </Tooltip>
+              )}
             </div>
           ),
         }}
