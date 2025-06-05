@@ -103,14 +103,7 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-    created, err := r.handlePersonalWorkspaceCreation(ctx, &tn)
-    if err != nil {
-        return ctrl.Result{}, err
-    }
-    if created {
-        // Requeue to ensure the rest of the logic runs with the updated tenant
-        return ctrl.Result{Requeue: true}, nil
-    }
+
 
 	if tn.Labels[r.TargetLabelKey] != r.TargetLabelValue {
 		// if entered here it means that is in the reconcile
@@ -149,6 +142,11 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	// tenant is NOT being deleted
 	klog.Infof("Reconciling tenant %s", tn.Name)
+
+	// enforce personal workspace
+	if err := r.handlePersonalWorkspaceEnforcement(ctx, &tn); err != nil {
+        return ctrl.Result{}, err
+    }
 
 	// convert the email to lower-case, to prevent issues with keycloak
 	// This modification is not persisted (on purpose) in the tenant resource, since the
