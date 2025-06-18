@@ -45,9 +45,9 @@ func (r *TenantReconciler) createPersonalWorkspace(ctx context.Context, tn *crow
 			Spec: crownlabsv1alpha1.WorkspaceSpec{
 				PrettyName: fmt.Sprintf("%s's Personal Workspace", tn.Spec.FirstName),
 				Quota: crownlabsv1alpha1.WorkspaceResourceQuota{
-					CPU:       resource.MustParse("2"),   // 2 cores
-					Memory:    resource.MustParse("4Gi"), // 4 GiB RAM
-					Instances: 2,                         // 2 instances
+					CPU:       resource.MustParse(r.PWsDefaultCPU),   // 2 cores
+					Memory:    resource.MustParse(r.PWsDefaultMemory), // 4 GiB RAM
+					Instances: uint32(r.PWsDefaultInstances),                         // 2 instances
 				},
 			},
 		}

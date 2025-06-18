@@ -79,6 +79,9 @@ type TenantReconciler struct {
 	RequeueTimeMaximum          time.Duration
 	TenantNSKeepAlive           time.Duration
 	BaseWorkspaces              []string
+	PWsDefaultCPU          		string
+	PWsDefaultMemory       		string
+	PWsDefaultInstances    		int
 
 	// This function, if configured, is deferred at the beginning of the Reconcile.
 	// Specifically, it is meant to be set to GinkgoRecover during the tests,

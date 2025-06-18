@@ -105,6 +105,13 @@ func main() {
 	flag.IntVar(&forge.CapInstance, "cap-instance", 10, "The cap number of instances that can be requested by a Tenant.")
 	flag.IntVar(&forge.CapCPU, "cap-cpu", 25, "The cap amount of CPU cores that can be requested by a Tenant.")
 	flag.IntVar(&forge.CapMemoryGiga, "cap-memory-giga", 50, "The cap amount of RAM memory in gigabytes that can be requested by a Tenant.")
+	// Personal Workspace Default Quotas
+	var PWsDefaultCPU string
+	var PWsDefaultMemory string
+	var PWsDefaultInstances int
+	flag.StringVar(&PWsDefaultCPU, "pws-default-cpu", "2", "The default CPU quota assigned to newly created Personal Workspaces.")
+	flag.StringVar(&PWsDefaultMemory, "pws-default-memory", "4Gi", "The default amount of RAM memory in gigabytes that can be requested by a Tenant in a Personal Workspace.")
+	flag.IntVar(&PWsDefaultInstances, "pws-default-instances", 2, "The default number of instances that can be created by a Tenant in a Personal Workspace.")
 
 	klog.InitFlags(nil)
 	flag.Parse()
@@ -196,6 +203,9 @@ func main() {
 		RequeueTimeMaximum:          requeueTimeMaximum,
 		TenantNSKeepAlive:           tenantNSKeepAlive,
 		BaseWorkspaces:              baseWorkspacesList,
+		PWsDefaultCPU:          PWsDefaultCPU,
+		PWsDefaultMemory:       PWsDefaultMemory,
+		PWsDefaultInstances:    PWsDefaultInstances,
 	}).SetupWithManager(mgr); err != nil {
 		log.Error(err, "Unable to create controller", "controller", "tenant")
 		os.Exit(1)
