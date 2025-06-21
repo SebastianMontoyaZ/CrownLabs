@@ -203,9 +203,9 @@ func main() {
 		RequeueTimeMaximum:          requeueTimeMaximum,
 		TenantNSKeepAlive:           tenantNSKeepAlive,
 		BaseWorkspaces:              baseWorkspacesList,
-		PWsDefaultCPU:          PWsDefaultCPU,
-		PWsDefaultMemory:       PWsDefaultMemory,
-		PWsDefaultInstances:    PWsDefaultInstances,
+		PWsDefaultCPU:               PWsDefaultCPU,
+		PWsDefaultMemory:            PWsDefaultMemory,
+		PWsDefaultInstances:         PWsDefaultInstances,
 	}).SetupWithManager(mgr); err != nil {
 		log.Error(err, "Unable to create controller", "controller", "tenant")
 		os.Exit(1)
