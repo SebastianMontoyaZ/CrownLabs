@@ -145,8 +145,10 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	klog.Infof("Reconciling tenant %s", tn.Name)
 
 	// enforce personal workspace
+	// before other operations on the tenant resource as we make changes to the spec that might be used in other future operations
 	if err := r.handlePersonalWorkspaceEnforcement(ctx, &tn); err != nil {
-		return ctrl.Result{}, err
+		klog.Errorf("Error when enforcing personal workspace for tenant %s -> %s", tn.Name, err)
+		retrigErr = err
 	}
 
 	// convert the email to lower-case, to prevent issues with keycloak

@@ -24,17 +24,11 @@ func (r *TenantReconciler) checkPersonalWorkspaceExists(ctx context.Context, tn 
 	personalWorkspaceExists := true
 	// try to get the personal workspace
 	err := r.Get(ctx, personalWorkspaceNamespacedName, &personalWorkspace)
-	// if unable to get the personal workspace, it doesn't exist
-	if err != nil {
-		personalWorkspaceExists = false
-		tn.Status.PersonalWorkspace.Created = false
-		tn.Status.PersonalWorkspace.Name = ""
-	}
 	// return the result, the error should be nil if the personal workspace exists
 	return personalWorkspaceExists, client.IgnoreNotFound(err)
 }
 
-func (r *TenantReconciler) createPersonalWorkspace(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
+func (r *TenantReconciler) createPersonalWorkspace(ctx context.Context, tn *crownlabsv1alpha2.Tenant) (*crownlabsv1alpha1.Workspace, error) {
 	// create the personal workspace object
 	personalWorkspaceName := getTenantPersonalWorkspaceName(tn)
 	ws := &crownlabsv1alpha1.Workspace{
@@ -55,52 +49,44 @@ func (r *TenantReconciler) createPersonalWorkspace(ctx context.Context, tn *crow
 		},
 	}
 	// create the personal workspace resource
-	err := client.IgnoreAlreadyExists(r.Client.Create(ctx, ws))
-	if err == nil {
-		tn.Status.PersonalWorkspace.Created = true
-		tn.Status.PersonalWorkspace.Name = personalWorkspaceName
+	if err := client.IgnoreAlreadyExists(r.Client.Create(ctx, ws)); err != nil {
+		klog.Errorf("Error when creating personal workspace for tenant %s -> %s", tn.Name, err)
+		return nil, err
 	}
-	// return the error
-	return err
+	return ws, nil
 }
 
 func (r *TenantReconciler) enforcePersonalWorkspaceRole(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
 	personalWorkspaceName := getTenantPersonalWorkspaceName(tn)
 	personalWorkspaceIndex := getTenantPersonalWorkspaceIndex(tn)
 	tenantIsManager := personalWorkspaceIndex != -1 && tn.Spec.Workspaces[personalWorkspaceIndex].Role == crownlabsv1alpha2.Manager
-	resourceModified := false
+	personalWorkspaceEntry := crownlabsv1alpha2.TenantWorkspaceEntry{
+		Name: personalWorkspaceName,
+		Role: crownlabsv1alpha2.Manager,
+	}
 	// enforce the personal workspace role
 	if personalWorkspaceIndex == -1 {
 		klog.Info("Subscribing tenant to personal workspace")
-		tn.Spec.Workspaces = append(tn.Spec.Workspaces, crownlabsv1alpha2.TenantWorkspaceEntry{
-			Name: personalWorkspaceName,
-			Role: crownlabsv1alpha2.Manager,
-		})
-		resourceModified = true
+		tn.Spec.Workspaces = append(tn.Spec.Workspaces, personalWorkspaceEntry)
 	} else if !tenantIsManager {
-		tn.Spec.Workspaces[personalWorkspaceIndex].Role = crownlabsv1alpha2.Manager
-		resourceModified = true
-	}
-	// update the tenant if it was modified and return
-	if resourceModified {
-		klog.Infof("Enforced role for personal workspace for tenant %s", tn.Name)
-		// return r.Client.Update(ctx, tn)
+		klog.Infof("Updating personal workspace role for tenant %s", tn.Name)
+		tn.Spec.Workspaces[personalWorkspaceIndex] = personalWorkspaceEntry
 	}
 	return nil
 }
 
 func (r *TenantReconciler) deletePersonalWorkspace(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
-	err := client.IgnoreNotFound(r.Client.Delete(ctx, &crownlabsv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: getTenantPersonalWorkspaceName(tn)}}))
-	originalWorkspaces := tn.Spec.Workspaces
-	if pwsIndex := getTenantPersonalWorkspaceIndex(tn); pwsIndex != -1 {
-		tn.Spec.Workspaces = originalWorkspaces[:pwsIndex]
-		if pwsIndex+1 < len(originalWorkspaces) {
-			tn.Spec.Workspaces = append(tn.Spec.Workspaces, originalWorkspaces[pwsIndex+1:]...)
-		}
+	personalWorkspaceDummy := &crownlabsv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: getTenantPersonalWorkspaceName(tn)}}
+	if err := client.IgnoreNotFound(r.Client.Delete(ctx, personalWorkspaceDummy)); err != nil {
+		klog.Errorf("Error when deleting personal workspace for tenant %s -> %s", tn.Name, err)
+		return err
 	}
-	tn.Status.PersonalWorkspace.Created = false
-	tn.Status.PersonalWorkspace.Name = ""
-	return err
+	// the personal workspace subscription is deleted by the workspace controller
+	if pwsIndex := getTenantPersonalWorkspaceIndex(tn); pwsIndex != -1 {
+		klog.Infof("Deleted personal workspace subscription for tenant %s", tn.Name)
+		tn.Spec.Workspaces = append(tn.Spec.Workspaces[:pwsIndex], tn.Spec.Workspaces[pwsIndex+1:]...)
+	}
+	return nil
 }
 
 // handlePersonalWorkspaceCreation checks if the tenant has a personal workspace, and creates it if missing.
@@ -155,32 +141,53 @@ func (r *TenantReconciler) handlePersonalWorkspaceEnforcement(ctx context.Contex
 	// if the tenant doesn't want a personal workspace, return
 	if !tn.Spec.CreatePersonalWorkspace {
 		klog.Infof("Enforcing personal workspace absence for tenant %s", tn.Name)
-		r.deletePersonalWorkspace(ctx, tn)
-		return nil
+		return r.handlePersonalWorkspaceAbsence(ctx, tn)
+	} else {
+		klog.Infof("Enforcing personal workspace presence for tenant %s", tn.Name)
+		return r.handlePersonalWorkspacePresence(ctx, tn)
 	}
-	klog.Infof("Enforcing personal workspace for tenant %s", tn.Name)
-	// check if the personal workspace exists
-	personalWorkspaceExists, err := r.checkPersonalWorkspaceExists(ctx, tn)
+}
+
+func (r *TenantReconciler) handlePersonalWorkspacePresence(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
+	ws, err := r.createPersonalWorkspace(ctx, tn)
 	if err != nil {
-		klog.Errorf("Error when checking if personal workspace exists for tenant %s -> %s", tn.Name, err)
+		klog.Errorf("Error when creating personal workspace for tenant %s -> %s", tn.Name, err)
 		return err
-	} else if !personalWorkspaceExists {
-		// if the personal workspace doesn't exist, create it
-		klog.Infof("Creating personal workspace for tenant %s", tn.Name)
-		err = r.createPersonalWorkspace(ctx, tn)
-		if err != nil {
-			klog.Errorf("Error when creating personal workspace for tenant %s -> %s", tn.Name, err)
-			return err
-		}
 	}
-	r.Status().Update(ctx, tn)
+	tn.Status.PersonalWorkspace.Created = true
+	tn.Status.PersonalWorkspace.Name = ws.Name
+	if err := r.Status().Update(ctx, tn); err != nil {
+		klog.Errorf("Error when updating status after enforcing personal workspace existence for tenant %s -> %s", tn.Name, err)
+		return err
+	}
 	// enforce the personal workspace role for the tenant
-	err = r.enforcePersonalWorkspaceRole(ctx, tn)
-	if err != nil {
+	if err := r.enforcePersonalWorkspaceRole(ctx, tn); err != nil {
 		klog.Errorf("Error when enforcing personal workspace role for tenant %s -> %s", tn.Name, err)
 		return err
 	}
-	r.Client.Update(ctx, tn)
+	// update the tenant
+	if err := r.Client.Update(ctx, tn); err != nil {
+		klog.Errorf("Error when updating spec after enforcing personal workspace role for tenant %s -> %s", tn.Name, err)
+		return err
+	}
+	return nil
+}
+func (r *TenantReconciler) handlePersonalWorkspaceAbsence(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
+	klog.Infof("Deleting personal workspace for tenant %s", tn.Name)
+	if err := r.deletePersonalWorkspace(ctx, tn); err != nil {
+		klog.Errorf("Error when deleting personal workspace for tenant %s -> %s", tn.Name, err)
+		return err
+	}
+	if err := r.Client.Update(ctx, tn); err != nil {
+		klog.Errorf("Error when updating spec for tenant after deleting personal workspace %s -> %s", tn.Name, err)
+		return err
+	}
+	tn.Status.PersonalWorkspace.Created = false
+	tn.Status.PersonalWorkspace.Name = ""
+	if err := r.Status().Update(ctx, tn); err != nil {
+		klog.Errorf("Error when updating status for tenant after deleting personal workspace %s -> %s", tn.Name, err)
+		return err
+	}
 	return nil
 }
 
