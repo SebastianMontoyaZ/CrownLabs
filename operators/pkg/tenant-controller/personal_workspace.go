@@ -49,9 +49,12 @@ func (r *TenantReconciler) createPersonalWorkspace(ctx context.Context, tn *crow
 		},
 	}
 	// create the personal workspace resource
-	if err := client.IgnoreAlreadyExists(r.Client.Create(ctx, ws)); err != nil {
+
+	if err := r.Client.Create(ctx, ws); client.IgnoreAlreadyExists(err) != nil {
 		klog.Errorf("Error when creating personal workspace for tenant %s -> %s", tn.Name, err)
 		return nil, err
+	} else if err == nil {
+		klog.Infof("Created personal workspace for tenant %s", tn.Name)
 	}
 	return ws, nil
 }
@@ -66,26 +69,35 @@ func (r *TenantReconciler) enforcePersonalWorkspaceRole(ctx context.Context, tn 
 	}
 	// enforce the personal workspace role
 	if personalWorkspaceIndex == -1 {
-		klog.Info("Subscribing tenant to personal workspace")
 		tn.Spec.Workspaces = append(tn.Spec.Workspaces, personalWorkspaceEntry)
+		klog.Infof("Subscribed tenant %s to personal workspace", tn.Name)
 	} else if !tenantIsManager {
-		klog.Infof("Updating personal workspace role for tenant %s", tn.Name)
 		tn.Spec.Workspaces[personalWorkspaceIndex] = personalWorkspaceEntry
+		klog.Infof("Updated personal workspace role for tenant %s", tn.Name)
 	}
 	return nil
 }
 
 func (r *TenantReconciler) deletePersonalWorkspace(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
-	// create a dummy personal workspace that represents the personal workspace to be deleted
-	personalWorkspaceDummy := &crownlabsv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: getTenantPersonalWorkspaceName(tn)}}
-	if err := client.IgnoreNotFound(r.Client.Delete(ctx, personalWorkspaceDummy)); err != nil {
-		klog.Errorf("Error when deleting personal workspace for tenant %s -> %s", tn.Name, err)
+	// the personal workspace subscription is also deleted by the workspace controller
+	// deleting the personal workspace subscription and updating the tenant spec first to have changes propagated
+	// and avoiding having the resource modified by the workspace controller
+	if pwsIndex := getTenantPersonalWorkspaceIndex(tn); pwsIndex != -1 {
+		tn.Spec.Workspaces = append(tn.Spec.Workspaces[:pwsIndex], tn.Spec.Workspaces[pwsIndex+1:]...)
+		klog.Infof("Deleted personal workspace subscription for tenant %s", tn.Name)
+	}
+	if err := r.Client.Update(ctx, tn); err != nil {
+		klog.Errorf("Error when updating spec for tenant after deleting personal workspace subscription %s -> %s", tn.Name, err)
 		return err
 	}
-	// the personal workspace subscription is deleted by the workspace controller
-	if pwsIndex := getTenantPersonalWorkspaceIndex(tn); pwsIndex != -1 {
-		klog.Infof("Deleted personal workspace subscription for tenant %s", tn.Name)
-		tn.Spec.Workspaces = append(tn.Spec.Workspaces[:pwsIndex], tn.Spec.Workspaces[pwsIndex+1:]...)
+	// create a dummy personal workspace that represents the personal workspace to be deleted
+	personalWorkspaceDummy := &crownlabsv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: getTenantPersonalWorkspaceName(tn)}}
+	if err := r.Client.Delete(ctx, personalWorkspaceDummy); client.IgnoreNotFound(err) != nil {
+		klog.Errorf("Error when deleting personal workspace for tenant %s -> %s", tn.Name, err)
+		return err
+	} else if err == nil {
+		klog.Infof("Deleted personal workspace of tenant %s", tn.Name)
+		return nil
 	}
 	return nil
 }
@@ -140,10 +152,8 @@ func (r *TenantReconciler) handlePersonalWorkspaceCreation(ctx context.Context, 
 
 func (r *TenantReconciler) handlePersonalWorkspaceEnforcement(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
 	if !tn.Spec.CreatePersonalWorkspace {
-		klog.Infof("Enforcing personal workspace absence for tenant %s", tn.Name)
 		return r.enforcePersonalWorkspaceAbsence(ctx, tn)
 	} else {
-		klog.Infof("Enforcing personal workspace presence for tenant %s", tn.Name)
 		return r.enforcePersonalWorkspacePresence(ctx, tn)
 	}
 }
@@ -174,14 +184,9 @@ func (r *TenantReconciler) enforcePersonalWorkspacePresence(ctx context.Context,
 	return nil
 }
 func (r *TenantReconciler) enforcePersonalWorkspaceAbsence(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
-	klog.Infof("Deleting personal workspace for tenant %s", tn.Name)
 	// delete workspace and make changes to tenant spec
 	if err := r.deletePersonalWorkspace(ctx, tn); err != nil {
 		klog.Errorf("Error when deleting personal workspace for tenant %s -> %s", tn.Name, err)
-		return err
-	}
-	if err := r.Client.Update(ctx, tn); err != nil {
-		klog.Errorf("Error when updating spec for tenant after deleting personal workspace %s -> %s", tn.Name, err)
 		return err
 	}
 	// update status
