@@ -291,6 +291,12 @@ func (r *TenantReconciler) handleDeletion(ctx context.Context, tnName string) er
 			}
 		}
 	}
+	// delete personal workspace
+	if err := r.handlePersonalWorkspaceTenantDeletion(ctx, tnName); err != nil {
+		klog.Errorf("Error when deleting personal workspace for tenant %s -> %s", tnName, err)
+		tnOpinternalErrors.WithLabelValues("tenant", "personal-workspace").Inc()
+		retErr = err
+	}
 	return retErr
 }
 

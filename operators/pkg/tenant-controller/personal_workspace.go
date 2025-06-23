@@ -76,6 +76,7 @@ func (r *TenantReconciler) enforcePersonalWorkspaceRole(ctx context.Context, tn 
 }
 
 func (r *TenantReconciler) deletePersonalWorkspace(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
+	// create a dummy personal workspace that represents the personal workspace to be deleted
 	personalWorkspaceDummy := &crownlabsv1alpha1.Workspace{ObjectMeta: metav1.ObjectMeta{Name: getTenantPersonalWorkspaceName(tn)}}
 	if err := client.IgnoreNotFound(r.Client.Delete(ctx, personalWorkspaceDummy)); err != nil {
 		klog.Errorf("Error when deleting personal workspace for tenant %s -> %s", tn.Name, err)
@@ -138,17 +139,17 @@ func (r *TenantReconciler) handlePersonalWorkspaceCreation(ctx context.Context, 
 }
 
 func (r *TenantReconciler) handlePersonalWorkspaceEnforcement(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
-	// if the tenant doesn't want a personal workspace, return
 	if !tn.Spec.CreatePersonalWorkspace {
 		klog.Infof("Enforcing personal workspace absence for tenant %s", tn.Name)
-		return r.handlePersonalWorkspaceAbsence(ctx, tn)
+		return r.enforcePersonalWorkspaceAbsence(ctx, tn)
 	} else {
 		klog.Infof("Enforcing personal workspace presence for tenant %s", tn.Name)
-		return r.handlePersonalWorkspacePresence(ctx, tn)
+		return r.enforcePersonalWorkspacePresence(ctx, tn)
 	}
 }
 
-func (r *TenantReconciler) handlePersonalWorkspacePresence(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
+func (r *TenantReconciler) enforcePersonalWorkspacePresence(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
+	// create the personal workspace and update the status
 	ws, err := r.createPersonalWorkspace(ctx, tn)
 	if err != nil {
 		klog.Errorf("Error when creating personal workspace for tenant %s -> %s", tn.Name, err)
@@ -160,20 +161,21 @@ func (r *TenantReconciler) handlePersonalWorkspacePresence(ctx context.Context, 
 		klog.Errorf("Error when updating status after enforcing personal workspace existence for tenant %s -> %s", tn.Name, err)
 		return err
 	}
-	// enforce the personal workspace role for the tenant
+	// enforce the personal workspace role for the tenant (adding the workspace to the tenant subscribed workspacesspec)
 	if err := r.enforcePersonalWorkspaceRole(ctx, tn); err != nil {
 		klog.Errorf("Error when enforcing personal workspace role for tenant %s -> %s", tn.Name, err)
 		return err
 	}
-	// update the tenant
+	// update the tenant spec
 	if err := r.Client.Update(ctx, tn); err != nil {
 		klog.Errorf("Error when updating spec after enforcing personal workspace role for tenant %s -> %s", tn.Name, err)
 		return err
 	}
 	return nil
 }
-func (r *TenantReconciler) handlePersonalWorkspaceAbsence(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
+func (r *TenantReconciler) enforcePersonalWorkspaceAbsence(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
 	klog.Infof("Deleting personal workspace for tenant %s", tn.Name)
+	// delete workspace and make changes to tenant spec
 	if err := r.deletePersonalWorkspace(ctx, tn); err != nil {
 		klog.Errorf("Error when deleting personal workspace for tenant %s -> %s", tn.Name, err)
 		return err
@@ -182,10 +184,23 @@ func (r *TenantReconciler) handlePersonalWorkspaceAbsence(ctx context.Context, t
 		klog.Errorf("Error when updating spec for tenant after deleting personal workspace %s -> %s", tn.Name, err)
 		return err
 	}
+	// update status
 	tn.Status.PersonalWorkspace.Created = false
 	tn.Status.PersonalWorkspace.Name = ""
 	if err := r.Status().Update(ctx, tn); err != nil {
 		klog.Errorf("Error when updating status for tenant after deleting personal workspace %s -> %s", tn.Name, err)
+		return err
+	}
+	return nil
+}
+func (r *TenantReconciler) handlePersonalWorkspaceTenantDeletion(ctx context.Context, tnName string) error {
+	tnDummy := &crownlabsv1alpha2.Tenant{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: tnName,
+		},
+	}
+	if err := r.deletePersonalWorkspace(ctx, tnDummy); err != nil {
+		klog.Errorf("Error when deleting personal workspace for tenant %s -> %s", tnDummy.Name, err)
 		return err
 	}
 	return nil
