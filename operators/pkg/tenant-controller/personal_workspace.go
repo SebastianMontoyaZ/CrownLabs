@@ -21,11 +21,9 @@ import (
 func (r *TenantReconciler) checkPersonalWorkspaceExists(ctx context.Context, tn *crownlabsv1alpha2.Tenant) (bool, error) {
 	var personalWorkspace crownlabsv1alpha1.Workspace
 	personalWorkspaceNamespacedName := types.NamespacedName{Name: getTenantPersonalWorkspaceName(tn)}
-	personalWorkspaceExists := true
-	// try to get the personal workspace
+
 	err := r.Get(ctx, personalWorkspaceNamespacedName, &personalWorkspace)
-	// return the result, the error should be nil if the personal workspace exists
-	return personalWorkspaceExists, client.IgnoreNotFound(err)
+	return err == nil, client.IgnoreNotFound(err)
 }
 
 func (r *TenantReconciler) createPersonalWorkspace(ctx context.Context, tn *crownlabsv1alpha2.Tenant) (*crownlabsv1alpha1.Workspace, error) {
@@ -113,31 +111,15 @@ func (r *TenantReconciler) handlePersonalWorkspaceCreation(ctx context.Context, 
 		}
 	}
 	if !hasPersonalWs {
-		// Create the Workspace CR if it doesn't exist
-		ws := &crownlabsv1alpha1.Workspace{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: personalWsName,
-				Labels: map[string]string{
-					"crownlabs.polito.it/type": "personal",
-				},
-			},
-			Spec: crownlabsv1alpha1.WorkspaceSpec{
-				PrettyName: fmt.Sprintf("%s's Personal Workspace", tn.Spec.FirstName),
-				Quota: crownlabsv1alpha1.WorkspaceResourceQuota{
-					CPU:       resource.MustParse("2"),   // 2 cores
-					Memory:    resource.MustParse("4Gi"), // 4 GiB RAM
-					Instances: 2,                         // 2 instances
-				},
-			},
-		}
-		if err := r.Client.Create(ctx, ws); err != nil && !apierrors.IsAlreadyExists(err) {
-			klog.Errorf("Failed to create personal workspace %s for tenant %s: %v", personalWsName, tn.Name, err)
+		// Use the existing createPersonalWorkspace function
+		ws, err := r.createPersonalWorkspace(ctx, tn)
+		if err != nil {
 			return false, err
 		}
 
 		// Add to tenant's workspaces as manager
 		tn.Spec.Workspaces = append(tn.Spec.Workspaces, crownlabsv1alpha2.TenantWorkspaceEntry{
-			Name: personalWsName,
+			Name: ws.Name,
 			Role: crownlabsv1alpha2.Manager,
 		})
 		if err := r.Update(ctx, tn); err != nil {
