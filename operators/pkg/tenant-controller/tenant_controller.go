@@ -249,8 +249,6 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return ctrl.Result{RequeueAfter: nextRequeueDuration}, nil
 }
 
-// ...existing code...
-
 // SetupWithManager registers a new controller for Tenant resources.
 func (r *TenantReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
