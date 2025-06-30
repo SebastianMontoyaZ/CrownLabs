@@ -180,6 +180,11 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
 
   return (
     <>
+      {/* Mini header with quota display */}
+      <div style={{ marginBottom: 16 }}>
+        <QuotaDisplay tenantNamespace={tenantNamespace} />
+      </div>
+
       <Box
         header={{
           size: 'large',
@@ -247,8 +252,6 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
           ),
         }}
       >
-        {/* Quota Display */}
-        {isPersonal && <QuotaDisplay />}
         {/* Show templates only in personal workspace */}
         {isPersonal ? (
           <TemplatesTableLogic

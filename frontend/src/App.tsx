@@ -1,81 +1,70 @@
-import React, { useContext } from 'react';
+import { BarChartOutlined, UserOutlined } from '@ant-design/icons';
+import { useContext } from 'react';
 import './App.css';
 import { TenantContext } from './contexts/TenantContext';
+import { LinkPosition } from './utils';
+import AppLayout from './components/common/AppLayout';
 import DashboardLogic from './components/workspaces/DashboardLogic/DashboardLogic';
-
-console.log('App.tsx: File loaded');
+import ActiveViewLogic from './components/activePage/ActiveViewLogic/ActiveViewLogic';
+import UserPanelLogic from './components/accountPage/UserPanelLogic/UserPanelLogic';
 
 function App() {
-  console.log('App: Component function called');
-
-  const { data: tenantData, loading, error } = useContext(TenantContext);
-
-  console.log('App - tenantData:', tenantData);
-  console.log('App - loading:', loading);
-  console.log('App - error:', error);
-
-  if (loading) {
-    console.log('App - Showing loading because loading=true');
-    return (
-      <div className="App">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100vh',
-            flexDirection: 'column',
-          }}
-        >
-          <h1>CrownLabs Loading...</h1>
-          <p>Setting things back up... Hold tight!</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    console.log('App - Showing error message');
-    return <div>Error loading tenant: {error.message}</div>;
-  }
-
-  if (!tenantData?.tenant) {
-    console.log('App - Showing development mode message');
-    return (
-      <div className="App">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100vh',
-          }}
-        >
-          <div style={{ padding: '20px' }}>
-            <h1>CrownLabs - Development Mode</h1>
-            <p>
-              No tenant data available (this is expected in development mode)
-            </p>
-            <p>The app is working correctly!</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  console.log('App - Should show dashboard now');
+  const { data: tenantData } = useContext(TenantContext);
 
   return (
-    <div className="App">
-      <div style={{ padding: '20px', border: '1px solid red' }}>
-        <h1>App Component Working!</h1>
-        <p>React is successfully rendering</p>
-      </div>
-      <DashboardLogic />
-    </div>
+    <AppLayout
+      TooltipButtonLink={
+        'https://grafana.crownlabs.polito.it/d/BOZGskUGz/personal-overview?&var-namespace=' +
+        tenantData?.tenant?.status?.personalNamespace?.name
+      }
+      TooltipButtonData={{
+        type: 'link',
+        tooltipPlacement: 'left',
+        tooltipTitle: 'Statistics',
+        icon: (
+          <BarChartOutlined
+            style={{ fontSize: '22px' }}
+            className="flex items-center justify-center "
+          />
+        ),
+      }}
+      routes={[
+        {
+          route: { name: 'Dashboard', path: '/' },
+          content: <DashboardLogic key="/" />,
+          linkPosition: LinkPosition.NavbarButton,
+        },
+        {
+          route: { name: 'Active', path: '/active' },
+          content: <ActiveViewLogic key="/active" />,
+          linkPosition: LinkPosition.NavbarButton,
+        },
+        {
+          route: {
+            name: 'Drive',
+            path: 'https://crownlabs.polito.it/cloud',
+          },
+          linkPosition: LinkPosition.NavbarButton,
+        },
+        {
+          route: {
+            name: 'Support',
+            path: 'https://support.crownlabs.polito.it/',
+          },
+          linkPosition: LinkPosition.NavbarButton,
+        },
+        {
+          route: {
+            name: 'Manage account',
+            path: '/account',
+            navbarMenuIcon: <UserOutlined />,
+          },
+          content: <UserPanelLogic key="/account" />,
+          linkPosition: LinkPosition.MenuButton,
+        },
+      ]}
+    />
   );
 }
-
-console.log('App.tsx: About to export App');
 
 export default App;

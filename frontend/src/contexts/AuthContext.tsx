@@ -59,11 +59,12 @@ const AuthContextProvider: FC<PropsWithChildren<{}>> = props => {
 
   useEffect(() => {
     if (DEV_MODE) {
-      // In development mode, skip authentication
+      // In development mode, skip authentication and use mock user ID that matches tenant
       setIsLoggedIn(true);
       setToken('mock-token');
-      setUserId('dev-user');
+      setUserId('john-doe'); // This must match your tenant name in mocks
       setExecLogin(false);
+      console.log('🚀 DEV MODE: Using mock userId: john-doe');
       return;
     }
 
@@ -88,54 +89,21 @@ const AuthContextProvider: FC<PropsWithChildren<{}>> = props => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setExecLogin, execLogin]);
 
-  const DEV_MODE =
-    process.env.NODE_ENV === 'development' &&
-    process.env.REACT_APP_CROWNLABS_DEV_MODE === 'true';
+  console.log('AuthContext state:', {
+    DEV_MODE,
+    isLoggedIn,
+    userId,
+    token: token ? 'present' : 'missing',
+  });
 
-  // Set initial values based on DEV_MODE after it's declared
-  useEffect(() => {
-    if (DEV_MODE) {
-      setIsLoggedIn(true);
-      setUserId('dev-user');
-      setToken('mock-token');
-    }
-  }, [DEV_MODE]);
-
-  console.log('AuthContext DEV_MODE:', DEV_MODE);
-
-  if (DEV_MODE) {
-    // Mock authentication for development
-    const mockAuthValue = {
-      authenticated: true,
-      isLoggedIn: true, // Add this missing property
-      user: {
-        id: 'dev-user',
-        firstName: 'Dev',
-        lastName: 'User',
-        email: 'dev@example.com',
-      },
-      token: 'mock-token',
-      logout: () => {},
-      login: () => void 0,
-    };
-
-    return (
-      <AuthContext.Provider value={mockAuthValue}>
-        {props.children}
-      </AuthContext.Provider>
-    );
-  }
+  const authValue: IAuthContext = {
+    isLoggedIn,
+    token,
+    userId,
+  };
 
   return (
-    <AuthContext.Provider
-      value={{
-        isLoggedIn,
-        token,
-        userId,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>
   );
 };
 
