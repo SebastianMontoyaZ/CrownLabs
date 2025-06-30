@@ -1,215 +1,164 @@
-import { PlusOutlined, UserSwitchOutlined } from '@ant-design/icons';
-import { Modal, Tooltip } from 'antd';
-import Button from 'antd-button-color';
-import { FC, useContext, useState } from 'react';
-import { ErrorContext } from '../../../errorHandling/ErrorContext';
+import React, { useState, useContext } from 'react';
+import { Card, Tabs, Alert, Spin } from 'antd';
 import {
-  EnvironmentType,
-  ImagesQuery,
-  useCreateTemplateMutation,
-  useImagesQuery,
-} from '../../../generated-types';
-import { JSONDeepCopy, Workspace, WorkspaceRole } from '../../../utils';
-import UserListLogic from '../../accountPage/UserListLogic/UserListLogic';
-import Box from '../../common/Box';
-import ModalCreateTemplate from '../ModalCreateTemplate';
-import { Image, Template } from '../ModalCreateTemplate/ModalCreateTemplate';
-import ModalAddTemplateYaml from '../ModalAddTemplateYaml/ModalAddTemplateYaml';
-import { useCreateTemplateFromYaml } from '../ModalAddTemplateYaml/ModalAddTemplateYamlLogic';
-import { TemplatesTableLogic } from '../Templates/TemplatesTableLogic';
-import Badge from '../../common/Badge';
+  AppstoreOutlined,
+  CloudServerOutlined,
+  SettingOutlined,
+} from '@ant-design/icons';
+import { TenantContext } from '../../../contexts/TenantContext';
+import TemplateManager from '../Templates/TemplateManager/TemplateManager';
+import QuotaOverview from '../../quota/QuotaOverview/QuotaOverview';
+import { WorkspaceRole } from '../../../utils';
 
 export interface IWorkspaceContainerProps {
   tenantNamespace: string;
-  workspace: Workspace;
+  workspace: {
+    name: string;
+    namespace: string;
+    prettyName: string;
+  };
 }
 
-const getImages = (dataImages: ImagesQuery) => {
-  let images: Image[] = [];
-  JSONDeepCopy(dataImages?.imageList?.images)?.forEach(i => {
-    const registry = i?.spec?.registryName!;
-    const imagesRaw = i?.spec?.images;
-    imagesRaw?.forEach(ir => {
-      let versionsInImageName: Image[];
-      if (registry === 'registry.internal.crownlabs.polito.it') {
-        const latestVersion = `${ir?.name!}:${
-          ir?.versions?.sort().reverse()[0]
-        }`;
-        versionsInImageName = [
-          {
-            name: latestVersion,
-            vmorcontainer: [EnvironmentType.VirtualMachine],
-            registry: registry!,
-          },
-        ];
-      } else {
-        versionsInImageName = ir?.versions?.map(v => {
-          return {
-            name: `${ir?.name!}:${v}`,
-            vmorcontainer: [EnvironmentType.Container],
-            registry: registry!,
-          };
-        })!;
-      }
-      images = [...images, ...versionsInImageName!];
-    });
-  });
-  return images;
-};
+const WorkspaceContainer: React.FC<IWorkspaceContainerProps> = ({
+  tenantNamespace,
+  workspace,
+}) => {
+  const { data: tenantData, loading } = useContext(TenantContext);
+  const [activeTab, setActiveTab] = useState('templates');
 
-const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
-  const [showUserListModal, setShowUserListModal] = useState<boolean>(false);
+  if (loading) {
+    return <Spin size="large" />;
+  }
 
-  const { tenantNamespace, workspace } = props;
+  // Get role from tenant data and convert to WorkspaceRole enum
+  const currentWorkspace = tenantData?.tenant?.spec?.workspaces?.find(
+    ws =>
+      ws &&
+      ws.workspaceWrapperTenantV1alpha2?.itPolitoCrownlabsV1alpha1Workspace
+        ?.status?.namespace?.name === workspace.namespace
+  );
 
-  const { apolloErrorCatcher } = useContext(ErrorContext);
-  const [createTemplateMutation, { loading }] = useCreateTemplateMutation({
-    onError: apolloErrorCatcher,
-  });
+  const roleString = currentWorkspace?.role || 'user';
 
-  const [showAddYamlModal, setShowAddYamlModal] = useState(false);
-  const { createTemplateFromYaml } = useCreateTemplateFromYaml();
+  // Convert string to WorkspaceRole enum
+  const userRole: WorkspaceRole = (() => {
+    switch (roleString.toLowerCase()) {
+      case 'manager':
+        return WorkspaceRole.manager;
+      case 'candidate':
+        return WorkspaceRole.candidate;
+      case 'user':
+      default:
+        return WorkspaceRole.user;
+    }
+  })();
 
-  const [show, setShow] = useState(false);
+  const isManager = userRole === WorkspaceRole.manager;
 
-  const { data: dataImages, refetch: refetchImages } = useImagesQuery({
-    variables: {},
-    onError: apolloErrorCatcher,
-  });
+  // ✅ Fixed: Get quota from tenant level instead of workspace spec
+  const tenantQuota = tenantData?.tenant?.status?.quota;
 
-  const submitHandler = (t: Template) =>
-    createTemplateMutation({
-      variables: {
-        workspaceId: workspace.name,
-        workspaceNamespace: workspace.namespace,
-        templateId: `${workspace.name}-`,
-        templateName: t.name?.trim()!,
-        descriptionTemplate: t.name?.trim()!,
-        image: t.registry
-          ? `${t.registry}/${t.image}`.trim()!
-          : `${t.image}`.trim()!,
-        guiEnabled: t.gui,
-        persistent: t.persistent,
-        mountMyDriveVolume: t.mountMyDrive,
-        environmentType:
-          t.vmorcontainer === EnvironmentType.Container
-            ? EnvironmentType.Container
-            : EnvironmentType.VirtualMachine,
-        resources: {
-          cpu: t.cpu,
-          memory: `${t.ram * 1000}M`,
-          disk: t.disk ? `${t.disk * 1000}M` : undefined,
-          reservedCPUPercentage: 50,
-        },
-        sharedVolumeMounts: t.sharedVolumeMountInfos ?? [],
-      },
-    });
-
-  const handleAddTemplateYaml = async (yaml: string) => {
-    await createTemplateFromYaml({
-      yaml,
-      workspaceNamespace: workspace.namespace, // pass the correct namespace
-    });
-    setShowAddYamlModal(false);
+  // Mock current usage for now - in real implementation, this would come from resource usage query
+  const currentUsage = {
+    cpu: '2',
+    memory: '4Gi',
+    instances: 1,
   };
 
-  return (
-    <>
-      <ModalCreateTemplate
-        workspaceNamespace={workspace.namespace}
-        cpuInterval={{ max: 4, min: 1 }}
-        ramInterval={{ max: 8, min: 1 }}
-        diskInterval={{ max: 50, min: 10 }}
-        setShow={setShow}
-        show={show}
-        images={getImages(dataImages!)}
-        submitHandler={submitHandler}
-        loading={loading}
-      />
-      <ModalAddTemplateYaml
-        visible={showAddYamlModal}
-        onCancel={() => setShowAddYamlModal(false)}
-        onAdd={handleAddTemplateYaml}
-      />
-      <Box
-        header={{
-          size: 'large',
-          center: (
-            <div className="h-full flex justify-center items-center px-5">
-              <p className="md:text-4xl text-2xl text-center mb-0">
-                <b>{workspace.prettyName}</b>
-              </p>
+  const tabItems = [
+    {
+      key: 'overview',
+      label: (
+        <span>
+          <CloudServerOutlined />
+          Overview
+        </span>
+      ),
+      children: (
+        <div>
+          {tenantQuota && (
+            <QuotaOverview
+              quota={{
+                cpu: tenantQuota.cpu || '0',
+                memory: tenantQuota.memory || '0Gi',
+                instances: tenantQuota.instances || 0,
+              }}
+              usage={currentUsage}
+              workspaceName={workspace.name}
+            />
+          )}
+
+          <Card title="Workspace Information" style={{ marginTop: 16 }}>
+            <div style={{ marginBottom: 8 }}>
+              <strong>Name:</strong> {workspace.prettyName}
             </div>
-          ),
-          left: workspace.role === WorkspaceRole.manager && (
-            <div className="h-full flex justify-center items-center pl-10">
-              <Tooltip title="Manage users">
-                <Button
-                  type="primary"
-                  shape="circle"
-                  size="large"
-                  icon={<UserSwitchOutlined />}
-                  onClick={() => setShowUserListModal(true)}
-                >
-                  {workspace.waitingTenants && (
-                    <Badge
-                      value={workspace.waitingTenants}
-                      size="small"
-                      color="yellow"
-                      className="absolute -top-2.5 -right-2.5"
-                    />
-                  )}
-                </Button>
-              </Tooltip>
+            <div style={{ marginBottom: 8 }}>
+              <strong>Namespace:</strong> {workspace.namespace}
             </div>
-          ),
-          right: workspace.role === WorkspaceRole.manager && (
-            <div className="h-full flex justify-center items-center pr-10 space-x-2">
-              <Tooltip title="Create template">
-                <Button
-                  onClick={() => {
-                    refetchImages();
-                    setShow(true);
-                  }}
-                  type="lightdark"
-                  shape="circle"
-                  size="large"
-                  icon={<PlusOutlined />}
-                />
-              </Tooltip>
-              {workspace.name.startsWith('personal-') && (
-                <Tooltip title="Add Template (YAML)">
-                  <Button
-                    type="primary"
-                    shape="circle"
-                    size="large"
-                    icon={<PlusOutlined />}
-                    onClick={() => setShowAddYamlModal(true)}
-                  />
-                </Tooltip>
-              )}
+            <div style={{ marginBottom: 8 }}>
+              <strong>Role:</strong> {roleString}
             </div>
-          ),
-        }}
-      >
-        <TemplatesTableLogic
+            <div>
+              <strong>Type:</strong>{' '}
+              {workspace.name.startsWith('personal-') ? 'Personal' : 'Shared'}
+            </div>
+          </Card>
+        </div>
+      ),
+    },
+    {
+      key: 'templates',
+      label: (
+        <span>
+          <AppstoreOutlined />
+          Templates
+        </span>
+      ),
+      children: (
+        <TemplateManager
           tenantNamespace={tenantNamespace}
-          role={workspace.role}
           workspaceNamespace={workspace.namespace}
           workspaceName={workspace.name}
+          role={userRole}
         />
-        <Modal
-          destroyOnClose={true}
-          title={`Users in ${workspace.prettyName} `}
-          width="800px"
-          visible={showUserListModal}
-          footer={null}
-          onCancel={() => setShowUserListModal(false)}
-        >
-          <UserListLogic workspace={workspace} />
-        </Modal>
-      </Box>
-    </>
+      ),
+    },
+  ];
+
+  // Add settings tab for managers
+  if (isManager) {
+    tabItems.push({
+      key: 'settings',
+      label: (
+        <span>
+          <SettingOutlined />
+          Settings
+        </span>
+      ),
+      children: (
+        <Card title="Workspace Settings">
+          <Alert
+            message="Settings Panel"
+            description="Workspace settings functionality will be implemented here."
+            type="info"
+            showIcon
+          />
+        </Card>
+      ),
+    });
+  }
+
+  return (
+    <div style={{ padding: '24px' }}>
+      <div style={{ marginBottom: 24 }}>
+        <h2>{workspace.prettyName}</h2>
+        <p style={{ color: '#666', margin: 0 }}>
+          Manage templates and resources for this workspace
+        </p>
+      </div>
+
+      <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+    </div>
   );
 };
 

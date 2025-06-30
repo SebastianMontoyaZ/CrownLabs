@@ -175,6 +175,7 @@ const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
           totalInstances={dataInstances.length}
           tenantNamespace={tenantNamespace}
           workspaceNamespace={workspaceNamespace}
+          workspaceName={workspaceName}
           templates={templates}
           role={role}
           deleteTemplate={(templateId: string) =>

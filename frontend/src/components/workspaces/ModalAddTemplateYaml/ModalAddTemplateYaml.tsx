@@ -7,7 +7,11 @@ interface ModalAddTemplateYamlProps {
   onAdd: (yaml: string) => void;
 }
 
-const ModalAddTemplateYaml: React.FC<ModalAddTemplateYamlProps> = ({ visible, onCancel, onAdd }) => {
+const ModalAddTemplateYaml: React.FC<ModalAddTemplateYamlProps> = ({
+  visible,
+  onCancel,
+  onAdd,
+}) => {
   const [yaml, setYaml] = useState('');
   return (
     <Modal
@@ -15,8 +19,12 @@ const ModalAddTemplateYaml: React.FC<ModalAddTemplateYamlProps> = ({ visible, on
       visible={visible}
       onCancel={onCancel}
       footer={[
-        <Button key="cancel" onClick={onCancel}>Cancel</Button>,
-        <Button key="add" type="primary" onClick={() => onAdd(yaml)}>Add</Button>
+        <Button key="cancel" onClick={onCancel}>
+          Cancel
+        </Button>,
+        <Button key="add" type="primary" onClick={() => onAdd(yaml)}>
+          Add
+        </Button>,
       ]}
     >
       <Input.TextArea

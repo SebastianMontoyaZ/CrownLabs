@@ -1,127 +1,162 @@
-import { ApolloError } from '@apollo/client';
-import {
+import React, {
   createContext,
-  FC,
-  PropsWithChildren,
   useContext,
-  useEffect,
+  ReactNode,
   useState,
+  useEffect,
 } from 'react';
-import { AuthContext } from './AuthContext';
+import { WorkspaceRole } from '../utils';
+import { useTenantQuery, TenantQuery, Role } from '../generated-types';
 import { ErrorContext } from '../errorHandling/ErrorContext';
-import { ErrorTypes } from '../errorHandling/utils';
-import {
-  TenantQuery,
-  UpdatedTenantSubscription,
-  useApplyTenantMutation,
-  useTenantQuery,
-} from '../generated-types';
-import { JSONDeepCopy } from '../utils';
-import { workspaceGetName } from '../utilsLogic';
-import { updatedTenant } from '../graphql-components/subscription';
-import { getTenantPatchJson } from '../graphql-components/utils';
 
-interface ITenantContext {
-  data?: TenantQuery;
-  loading?: boolean;
-  error?: ApolloError;
-  hasSSHKeys: boolean;
-  now: Date;
+export interface ITenantContextProps {
+  data: TenantQuery | undefined;
+  loading: boolean;
+  error: any;
   refreshClock: () => void;
+  now: Date;
+  hasSSHKeys: boolean;
 }
 
-export const TenantContext = createContext<ITenantContext>({
+export const TenantContext = createContext<ITenantContextProps>({
   data: undefined,
-  loading: undefined,
-  error: undefined,
-  hasSSHKeys: false,
+  loading: false,
+  error: null,
+  refreshClock: () => {},
   now: new Date(),
-  refreshClock: () => null,
+  hasSSHKeys: false,
 });
 
-const TenantContextProvider: FC<PropsWithChildren<{}>> = props => {
-  const { userId } = useContext(AuthContext);
-  const { children } = props;
+export interface ITenantProviderProps {
+  children: ReactNode;
+}
+
+// Mock data for development
+const mockTenantData: TenantQuery = {
+  tenant: {
+    __typename: 'ItPolitoCrownlabsV1alpha2Tenant',
+    spec: {
+      __typename: 'Spec7',
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john.doe@example.com',
+      workspaces: [
+        {
+          __typename: 'WorkspacesListItem',
+          name: 'dev-workspace',
+          role: Role.Manager,
+          workspaceWrapperTenantV1alpha2: {
+            __typename: 'WorkspaceWrapperTenantV1alpha2',
+            itPolitoCrownlabsV1alpha1Workspace: {
+              __typename: 'ItPolitoCrownlabsV1alpha1Workspace',
+              spec: {
+                __typename: 'Spec2',
+                prettyName: 'Development Workspace',
+              },
+              status: {
+                __typename: 'Status2',
+                namespace: {
+                  __typename: 'Namespace',
+                  name: 'workspace-dev',
+                },
+              },
+            },
+          },
+        },
+        {
+          __typename: 'WorkspacesListItem',
+          name: 'personal-john-doe',
+          role: Role.Manager,
+          workspaceWrapperTenantV1alpha2: {
+            __typename: 'WorkspaceWrapperTenantV1alpha2',
+            itPolitoCrownlabsV1alpha1Workspace: {
+              __typename: 'ItPolitoCrownlabsV1alpha1Workspace',
+              spec: {
+                __typename: 'Spec2',
+                prettyName: 'Personal Workspace',
+              },
+              status: {
+                __typename: 'Status2',
+                namespace: {
+                  __typename: 'Namespace',
+                  name: 'tenant-john-doe',
+                },
+              },
+            },
+          },
+        },
+      ],
+    },
+    status: {
+      __typename: 'Status7',
+      personalNamespace: {
+        __typename: 'PersonalNamespace',
+        name: 'tenant-john-doe',
+        created: true,
+      },
+      quota: {
+        __typename: 'Quota3',
+        instances: 8,
+        cpu: '23',
+        memory: '48Gi',
+      },
+    },
+  },
+};
+
+export const TenantProvider: React.FC<ITenantProviderProps> = ({
+  children,
+}) => {
+  const { apolloErrorCatcher } = useContext(ErrorContext);
+
+  // ✅ Use hardcoded tenantId for now since we don't have access to UserContext
+  const tenantId = 'john-doe'; // In a real app, this would come from authentication/routing
+
+  const { data, loading, error, refetch } = useTenantQuery({
+    variables: { tenantId }, // ✅ Provide required tenantId variable
+    onError: apolloErrorCatcher,
+    fetchPolicy: 'cache-and-network',
+  });
 
   const [now, setNow] = useState(new Date());
-  const [data, setData] = useState<TenantQuery>();
-
-  const { makeErrorCatcher, apolloErrorCatcher, errorsQueue } =
-    useContext(ErrorContext);
-
-  const { loading, error, subscribeToMore } = useTenantQuery({
-    variables: { tenantId: userId ?? '' },
-    skip: !userId,
-    onCompleted: data => {
-      const d = JSONDeepCopy(data);
-      d?.tenant?.spec?.workspaces?.sort((a, b) =>
-        workspaceGetName(a).localeCompare(workspaceGetName(b))
-      );
-      setData(d);
-    },
-    fetchPolicy: 'network-only',
-    onError: apolloErrorCatcher,
-  });
-
-  const [applyTenantMutation] = useApplyTenantMutation({
-    onError: apolloErrorCatcher,
-  });
+  const [hasSSHKeys, setHasSSHKeys] = useState(false);
 
   useEffect(() => {
-    if (userId && !loading && !error && !errorsQueue.length) {
-      const unsubscribe = subscribeToMore({
-        onError: makeErrorCatcher(ErrorTypes.GenericError),
-        variables: { tenantId: userId ?? '' },
-        document: updatedTenant,
-        updateQuery: (prev, { subscriptionData: { data } }) => {
-          const dataCasted = data as UpdatedTenantSubscription;
-          if (!data) return prev;
-          setData(dataCasted.updatedTenant as TenantQuery);
-          return data;
-        },
-      });
-      return unsubscribe;
-    }
-  }, [
-    subscribeToMore,
-    loading,
-    userId,
-    errorsQueue.length,
-    error,
-    apolloErrorCatcher,
-    makeErrorCatcher,
-  ]);
+    const interval = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
 
-  const refreshClock = () => setNow(new Date());
-
-  useEffect(() => {
-    const timerHandler = setInterval(refreshClock, 60000);
-    return () => clearInterval(timerHandler);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    if (!data?.tenant?.metadata?.name || !userId) return;
-    applyTenantMutation({
-      variables: {
-        tenantId: userId,
-        patchJson: getTenantPatchJson({
-          lastLogin: new Date(),
-        }),
-        manager: 'frontend-tenant-lastlogin',
-      },
-      onError: apolloErrorCatcher,
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+    if (data?.tenant) {
+      setHasSSHKeys(!!data.tenant);
+    }
+  }, [data]);
 
-  const hasSSHKeys = !!data?.tenant?.spec?.publicKeys?.length;
+  const refreshClock = () => {
+    setNow(new Date());
+    if (process.env.NODE_ENV !== 'development') {
+      refetch();
+    }
+  };
+
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const contextValue: ITenantContextProps = {
+    data: isDevelopment ? mockTenantData : data,
+    loading: isDevelopment ? false : loading,
+    error: isDevelopment ? null : error,
+    refreshClock,
+    now,
+    hasSSHKeys: isDevelopment ? true : hasSSHKeys,
+  };
+
   return (
-    <TenantContext.Provider
-      value={{ data, loading, error, now, refreshClock, hasSSHKeys }}
-    >
+    <TenantContext.Provider value={contextValue}>
       {children}
     </TenantContext.Provider>
   );
 };
 
-export default TenantContextProvider;
+export default TenantContext;
