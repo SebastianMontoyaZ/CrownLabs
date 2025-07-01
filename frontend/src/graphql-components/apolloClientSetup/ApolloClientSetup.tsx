@@ -18,19 +18,26 @@ import { createClient } from 'graphql-ws';
 import { ErrorContext } from '../../errorHandling/ErrorContext';
 import { REACT_APP_CROWNLABS_GRAPHQL_URL } from '../../env';
 import { hasRenderingError } from '../../errorHandling/utils';
-import { WorkspaceTemplatesQuery, Role } from '../../generated-types';
-import { gql } from '@apollo/client';
-import { TenantDocument, OwnedInstancesDocument } from '../../generated-types';
-import { MockLink, MockedProvider } from '@apollo/client/testing';
+import {
+  TenantDocument,
+  OwnedInstancesDocument,
+  WorkspaceTemplatesDocument,
+  ImagesDocument,
+  WorkspacesDocument,
+  WorkspaceSharedVolumesDocument,
+  Role,
+  EnvironmentType,
+} from '../../generated-types';
+import { MockLink } from '@apollo/client/testing';
 
 const DEV_MODE = process.env.NODE_ENV === 'development';
 
-// Enhanced tenant mock with proper user ID that matches AuthContext
+// Enhanced tenant mock matching the exact GraphQL schema
 const tenantMocks = [
   {
     request: {
       query: TenantDocument,
-      variables: {},
+      variables: { tenantId: 'john-doe' },
     },
     result: {
       data: {
@@ -45,6 +52,32 @@ const tenantMocks = [
             firstName: 'John',
             lastName: 'Doe',
             email: 'john.doe@example.com',
+            lastLogin: '2024-01-20T10:30:00Z',
+            workspaces: [
+              {
+                __typename: 'WorkspacesListItem',
+                role: Role.Manager,
+                name: 'john-doe',
+                workspaceWrapperTenantV1alpha2: {
+                  __typename: 'WorkspaceWrapperTenantV1alpha2',
+                  itPolitoCrownlabsV1alpha1Workspace: {
+                    __typename: 'ItPolitoCrownlabsV1alpha1Workspace',
+                    spec: {
+                      __typename: 'Spec2',
+                      prettyName: 'Personal Workspace',
+                    },
+                    status: {
+                      __typename: 'Status2',
+                      namespace: {
+                        __typename: 'Namespace',
+                        name: 'tenant-john-doe',
+                      },
+                    },
+                  },
+                },
+              },
+            ],
+            publicKeys: ['ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7...'],
           },
           status: {
             __typename: 'Status7',
@@ -55,9 +88,9 @@ const tenantMocks = [
             },
             quota: {
               __typename: 'Quota3',
-              instances: 10,
-              cpu: '8',
-              memory: '32Gi',
+              instances: 8,
+              cpu: '23',
+              memory: '48Gi',
             },
           },
         },
@@ -66,7 +99,167 @@ const tenantMocks = [
   },
 ];
 
-// Fix the ownedInstances query mock using the actual document
+// Fix workspaces mock to match the exact schema
+const workspacesMocks = [
+  {
+    request: {
+      query: WorkspacesDocument,
+      variables: { labels: undefined },
+    },
+    result: {
+      data: {
+        workspaces: {
+          __typename: 'ItPolitoCrownlabsV1alpha1WorkspaceList',
+          items: [
+            {
+              __typename: 'ItPolitoCrownlabsV1alpha1Workspace',
+              metadata: {
+                __typename: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta',
+                name: 'john-doe',
+              },
+              spec: {
+                __typename: 'Spec2',
+                prettyName: 'Personal Workspace',
+                autoEnroll: null,
+              },
+            },
+          ],
+        },
+      },
+    },
+  },
+  // Add explicit mock for null labels
+  {
+    request: {
+      query: WorkspacesDocument,
+      variables: { labels: null },
+    },
+    result: {
+      data: {
+        workspaces: {
+          __typename: 'ItPolitoCrownlabsV1alpha1WorkspaceList',
+          items: [
+            {
+              __typename: 'ItPolitoCrownlabsV1alpha1Workspace',
+              metadata: {
+                __typename: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta',
+                name: 'john-doe',
+              },
+              spec: {
+                __typename: 'Spec2',
+                prettyName: 'Personal Workspace',
+                autoEnroll: null,
+              },
+            },
+          ],
+        },
+      },
+    },
+  },
+];
+
+// Fix workspace templates mock to match exact schema
+const workspaceTemplatesMocks = [
+  {
+    request: {
+      query: WorkspaceTemplatesDocument,
+      variables: { workspaceNamespace: 'tenant-john-doe' },
+    },
+    result: {
+      data: {
+        templateList: {
+          __typename: 'ItPolitoCrownlabsV1alpha2TemplateList',
+          templates: [
+            {
+              __typename: 'ItPolitoCrownlabsV1alpha2Template',
+              metadata: {
+                __typename: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta',
+                name: 'python-dev',
+                namespace: 'tenant-john-doe',
+              },
+              spec: {
+                __typename: 'Spec6',
+                prettyName: 'Python Development Environment',
+                description: 'Complete Python development setup with VS Code',
+                environmentList: [
+                  {
+                    __typename: 'EnvironmentListListItem',
+                    name: 'python-env',
+                    environmentType: EnvironmentType.Container,
+                    guiEnabled: true,
+                    persistent: true,
+                    image: 'registry.crownlabs.polito.it/python-dev:latest',
+                    mountMyDriveVolume: true,
+                    mode: null,
+                    nodeSelector: null,
+                    disableControls: false,
+                    rewriteURL: false,
+                    storageClassName: null,
+                    containerStartupOptions: null,
+                    sharedVolumeMounts: null,
+                    resources: {
+                      __typename: 'Resources',
+                      cpu: 2,
+                      memory: '4Gi',
+                      disk: '20Gi',
+                    },
+                  },
+                ],
+                workspaceCrownlabsPolitoItWorkspaceRef: {
+                  __typename: 'WorkspaceCrownlabsPolitoItWorkspaceRef',
+                  name: 'john-doe',
+                },
+              },
+            },
+            {
+              __typename: 'ItPolitoCrownlabsV1alpha2Template',
+              metadata: {
+                __typename: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta',
+                name: 'jupyter-notebook',
+                namespace: 'tenant-john-doe',
+              },
+              spec: {
+                __typename: 'Spec6',
+                prettyName: 'Jupyter Data Science Environment',
+                description: 'Jupyter notebook with data science libraries',
+                environmentList: [
+                  {
+                    __typename: 'EnvironmentListListItem',
+                    name: 'jupyter-env',
+                    environmentType: EnvironmentType.Container,
+                    guiEnabled: true,
+                    persistent: true,
+                    image: 'jupyter/datascience-notebook:latest',
+                    mountMyDriveVolume: true,
+                    mode: null,
+                    nodeSelector: null,
+                    disableControls: false,
+                    rewriteURL: false,
+                    storageClassName: null,
+                    containerStartupOptions: null,
+                    sharedVolumeMounts: null,
+                    resources: {
+                      __typename: 'Resources',
+                      cpu: 1,
+                      memory: '2Gi',
+                      disk: '15Gi',
+                    },
+                  },
+                ],
+                workspaceCrownlabsPolitoItWorkspaceRef: {
+                  __typename: 'WorkspaceCrownlabsPolitoItWorkspaceRef',
+                  name: 'john-doe',
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  },
+];
+
+// Fix instances mock to match the exact schema from instances.query.graphql
 const ownedInstancesMocks = [
   {
     request: {
@@ -78,6 +271,7 @@ const ownedInstancesMocks = [
         instanceList: {
           __typename: 'ListCrownlabsPolitoItV1alpha2NamespacedInstance',
           instances: [
+            // RUNNING Python instance
             {
               __typename: 'ItPolitoCrownlabsV1alpha2Instance',
               metadata: {
@@ -98,95 +292,14 @@ const ownedInstancesMocks = [
                 phase: 'Ready',
                 url: 'https://python-dev-instance-1.crownlabs.polito.it',
                 nodeName: 'worker-node-1',
-                nodeSelector: {
-                  'kubernetes.io/arch': 'amd64',
-                  'node-type': 'compute',
-                },
-              },
-              spec: {
-                __typename: 'Spec5',
-                running: true,
-                prettyName: 'My Python Development Environment',
-                templateCrownlabsPolitoItTemplateRef: {
-                  __typename: 'TemplateCrownlabsPolitoItTemplateRef',
-                  name: 'python-dev',
-                  namespace: 'tenant-john-doe',
-                  templateWrapper: {
-                    __typename: 'TemplateWrapper',
-                    itPolitoCrownlabsV1alpha2Template: {
-                      __typename: 'ItPolitoCrownlabsV1alpha2Template',
-                      spec: {
-                        __typename: 'Spec6',
-                        prettyName: 'Python Development Environment',
-                        description:
-                          'Complete Python development setup with Jupyter, VS Code, and common libraries',
-                        environmentList: [
-                          {
-                            __typename: 'EnvironmentListListItem',
-                            guiEnabled: true,
-                            persistent: true,
-                            environmentType: 'Container',
-                          },
-                        ],
-                      },
-                    },
-                  },
-                },
-              },
-            },
-            {
-              __typename: 'ItPolitoCrownlabsV1alpha2Instance',
-              metadata: {
-                __typename: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta',
-                name: 'ubuntu-vm-instance-1',
-                namespace: 'tenant-john-doe',
-                creationTimestamp: '2024-01-15T14:20:00Z',
-                labels: {
-                  'crownlabs.polito.it/template': 'ubuntu-vm',
-                  'crownlabs.polito.it/workspace': 'john-doe',
-                  'crownlabs.polito.it/managed-by': 'instance-operator',
-                  'crownlabs.polito.it/persistent': 'false',
-                },
-              },
-              status: {
-                __typename: 'Status6',
-                ip: null,
-                phase: 'Off',
-                url: null,
-                nodeName: null,
                 nodeSelector: null,
               },
               spec: {
                 __typename: 'Spec5',
-                running: false,
-                prettyName: 'Ubuntu Virtual Machine Instance',
-                templateCrownlabsPolitoItTemplateRef: {
-                  __typename: 'TemplateCrownlabsPolitoItTemplateRef',
-                  name: 'ubuntu-vm',
-                  namespace: 'tenant-john-doe',
-                  templateWrapper: {
-                    __typename: 'TemplateWrapper',
-                    itPolitoCrownlabsV1alpha2Template: {
-                      __typename: 'ItPolitoCrownlabsV1alpha2Template',
-                      spec: {
-                        __typename: 'Spec6',
-                        prettyName: 'Ubuntu Virtual Machine',
-                        description:
-                          'Ubuntu 22.04 LTS virtual machine with desktop environment',
-                        environmentList: [
-                          {
-                            __typename: 'EnvironmentListListItem',
-                            guiEnabled: true,
-                            persistent: false,
-                            environmentType: 'VirtualMachine',
-                          },
-                        ],
-                      },
-                    },
-                  },
-                },
+                running: true,
               },
             },
+            // RUNNING Jupyter instance
             {
               __typename: 'ItPolitoCrownlabsV1alpha2Instance',
               metadata: {
@@ -207,40 +320,11 @@ const ownedInstancesMocks = [
                 phase: 'Ready',
                 url: 'https://jupyter-notebook-instance-1.crownlabs.polito.it',
                 nodeName: 'worker-node-2',
-                nodeSelector: {
-                  'kubernetes.io/arch': 'amd64',
-                  'node-type': 'compute',
-                },
+                nodeSelector: null,
               },
               spec: {
                 __typename: 'Spec5',
                 running: true,
-                prettyName: 'Jupyter Data Science Notebook',
-                templateCrownlabsPolitoItTemplateRef: {
-                  __typename: 'TemplateCrownlabsPolitoItTemplateRef',
-                  name: 'jupyter-notebook',
-                  namespace: 'tenant-john-doe',
-                  templateWrapper: {
-                    __typename: 'TemplateWrapper',
-                    itPolitoCrownlabsV1alpha2Template: {
-                      __typename: 'ItPolitoCrownlabsV1alpha2Template',
-                      spec: {
-                        __typename: 'Spec6',
-                        prettyName: 'Jupyter Data Science Environment',
-                        description:
-                          'Jupyter notebook with data science libraries and tools',
-                        environmentList: [
-                          {
-                            __typename: 'EnvironmentListListItem',
-                            guiEnabled: true,
-                            persistent: true,
-                            environmentType: 'Container',
-                          },
-                        ],
-                      },
-                    },
-                  },
-                },
               },
             },
           ],
@@ -250,290 +334,11 @@ const ownedInstancesMocks = [
   },
 ];
 
-// Enhanced subscription mocks
-const instanceSubscriptionMocks = [
-  {
-    request: {
-      query: gql`
-        subscription updatedOwnedInstances(
-          $tenantNamespace: String!
-          $instanceId: String
-        ) {
-          updateInstance: itPolitoCrownlabsV1alpha2InstanceUpdate(
-            namespace: $tenantNamespace
-            name: $instanceId
-          ) {
-            updateType
-            instance: payload {
-              metadata {
-                name
-                namespace
-                creationTimestamp
-                labels
-                __typename
-              }
-              status {
-                ip
-                phase
-                url
-                __typename
-              }
-              spec {
-                running
-                prettyName
-                templateCrownlabsPolitoItTemplateRef {
-                  name
-                  namespace
-                  templateWrapper {
-                    itPolitoCrownlabsV1alpha2Template {
-                      spec {
-                        prettyName
-                        description
-                        environmentList {
-                          guiEnabled
-                          persistent
-                          environmentType
-                          __typename
-                        }
-                        __typename
-                      }
-                      __typename
-                    }
-                    __typename
-                  }
-                  __typename
-                }
-                __typename
-              }
-              __typename
-            }
-            __typename
-          }
-        }
-      `,
-      variables: { tenantNamespace: 'tenant-john-doe' },
-    },
-    result: {
-      data: {
-        updateInstance: {
-          __typename: 'ItPolitoCrownlabsV1alpha2InstanceUpdate',
-          updateType: 'ADDED',
-          instance: {
-            __typename: 'ItPolitoCrownlabsV1alpha2Instance',
-            metadata: {
-              __typename: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta',
-              name: 'python-dev-instance-1',
-              namespace: 'tenant-john-doe',
-              creationTimestamp: '2024-01-15T10:30:00Z',
-              labels: {
-                'crownlabs.polito.it/template': 'python-dev',
-                'crownlabs.polito.it/workspace': 'john-doe',
-                'crownlabs.polito.it/managed-by': 'instance-operator',
-              },
-            },
-            status: {
-              __typename: 'Status6',
-              ip: '10.244.1.15',
-              phase: 'Ready',
-              url: 'https://python-dev-instance-1.crownlabs.polito.it',
-            },
-            spec: {
-              __typename: 'Spec5',
-              running: true,
-              prettyName: 'My Python Development Environment',
-              templateCrownlabsPolitoItTemplateRef: {
-                __typename: 'TemplateCrownlabsPolitoItTemplateRef',
-                name: 'python-dev',
-                namespace: 'tenant-john-doe',
-                templateWrapper: {
-                  __typename: 'TemplateWrapper',
-                  itPolitoCrownlabsV1alpha2Template: {
-                    __typename: 'ItPolitoCrownlabsV1alpha2Template',
-                    spec: {
-                      __typename: 'Spec6',
-                      prettyName: 'Python Development Environment',
-                      description:
-                        'Complete Python development setup with Jupyter, VS Code, and common libraries',
-                      environmentList: [
-                        {
-                          __typename: 'EnvironmentListListItem',
-                          guiEnabled: true,
-                          persistent: true,
-                          environmentType: 'Container',
-                        },
-                      ],
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-];
-
-// Enhanced workspace templates mock
-const workspaceTemplatesMocks = [
-  {
-    request: {
-      query: gql`
-        query workspaceTemplates($workspaceNamespace: String!) {
-          templateList: itPolitoCrownlabsV1alpha2TemplateList(
-            namespace: $workspaceNamespace
-          ) {
-            templates: items {
-              metadata {
-                name
-                namespace
-              }
-              spec {
-                prettyName
-                description
-                environmentList {
-                  guiEnabled
-                  persistent
-                  resources {
-                    cpu
-                    disk
-                    memory
-                  }
-                }
-                workspaceCrownlabsPolitoItWorkspaceRef {
-                  name
-                }
-              }
-            }
-          }
-        }
-      `,
-      variables: { workspaceNamespace: 'tenant-john-doe' },
-    },
-    result: {
-      data: {
-        templateList: {
-          __typename: 'ItPolitoCrownlabsV1alpha2TemplateList',
-          templates: [
-            {
-              __typename: 'ItPolitoCrownlabsV1alpha2Template',
-              metadata: {
-                __typename: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta',
-                name: 'python-dev',
-                namespace: 'tenant-john-doe',
-              },
-              spec: {
-                __typename: 'Spec6',
-                prettyName: 'Python Development Environment',
-                description:
-                  'Complete Python development setup with Jupyter, VS Code, and common libraries',
-                environmentList: [
-                  {
-                    __typename: 'EnvironmentListListItem',
-                    guiEnabled: true,
-                    persistent: true,
-                    resources: {
-                      __typename: 'Resources',
-                      cpu: 2,
-                      disk: '20Gi',
-                      memory: '4Gi',
-                    },
-                  },
-                ],
-                workspaceCrownlabsPolitoItWorkspaceRef: {
-                  __typename: 'WorkspaceCrownlabsPolitoItWorkspaceRef',
-                  name: 'john-doe',
-                },
-              },
-            },
-            {
-              __typename: 'ItPolitoCrownlabsV1alpha2Template',
-              metadata: {
-                __typename: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta',
-                name: 'ubuntu-vm',
-                namespace: 'tenant-john-doe',
-              },
-              spec: {
-                __typename: 'Spec6',
-                prettyName: 'Ubuntu Virtual Machine',
-                description:
-                  'Ubuntu 22.04 LTS virtual machine with desktop environment',
-                environmentList: [
-                  {
-                    __typename: 'EnvironmentListListItem',
-                    guiEnabled: true,
-                    persistent: false,
-                    resources: {
-                      __typename: 'Resources',
-                      cpu: 2,
-                      disk: '30Gi',
-                      memory: '4Gi',
-                    },
-                  },
-                ],
-                workspaceCrownlabsPolitoItWorkspaceRef: {
-                  __typename: 'WorkspaceCrownlabsPolitoItWorkspaceRef',
-                  name: 'john-doe',
-                },
-              },
-            },
-            {
-              __typename: 'ItPolitoCrownlabsV1alpha2Template',
-              metadata: {
-                __typename: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta',
-                name: 'jupyter-notebook',
-                namespace: 'tenant-john-doe',
-              },
-              spec: {
-                __typename: 'Spec6',
-                prettyName: 'Jupyter Data Science Environment',
-                description:
-                  'Jupyter notebook with data science libraries and tools',
-                environmentList: [
-                  {
-                    __typename: 'EnvironmentListListItem',
-                    guiEnabled: true,
-                    persistent: true,
-                    resources: {
-                      __typename: 'Resources',
-                      cpu: 1,
-                      disk: '15Gi',
-                      memory: '2Gi',
-                    },
-                  },
-                ],
-                workspaceCrownlabsPolitoItWorkspaceRef: {
-                  __typename: 'WorkspaceCrownlabsPolitoItWorkspaceRef',
-                  name: 'john-doe',
-                },
-              },
-            },
-          ],
-        },
-      },
-    },
-  },
-];
-
-// Images mock
+// Fix images mock to match exact schema
 const imagesMocks = [
   {
     request: {
-      query: gql`
-        query images {
-          imageList: itPolitoCrownlabsV1alpha1ImageListList {
-            images: items {
-              spec {
-                registryName
-                images {
-                  name
-                  versions
-                }
-              }
-            }
-          }
-        }
-      `,
+      query: ImagesDocument,
       variables: {},
     },
     result: {
@@ -574,7 +379,7 @@ const imagesMocks = [
               __typename: 'ItPolitoCrownlabsV1alpha1ImageList',
               spec: {
                 __typename: 'Spec',
-                registryName: 'registry.crownlabs.polito.it/vm',
+                registryName: 'registry.internal.crownlabs.polito.it',
                 images: [
                   {
                     __typename: 'ImagesListItem',
@@ -596,65 +401,33 @@ const imagesMocks = [
   },
 ];
 
-// Your existing workspaces mock
-const workspacesMocks = [
+// Add shared volumes mock
+const sharedVolumesMocks = [
   {
     request: {
-      query: gql`
-        query workspaces {
-          workspaceList: itPolitoCrownlabsV1alpha1WorkspaceList {
-            workspaces: items {
-              metadata {
-                name
-                namespace
-              }
-              spec {
-                prettyName
-              }
-              status {
-                namespace {
-                  name
-                  created
-                }
-                subscription {
-                  status
-                }
-                role
-              }
-            }
-          }
-        }
-      `,
-      variables: {},
+      query: WorkspaceSharedVolumesDocument,
+      variables: { workspaceNamespace: 'tenant-john-doe' },
     },
     result: {
       data: {
-        workspaceList: {
-          __typename: 'ItPolitoCrownlabsV1alpha1WorkspaceList',
-          workspaces: [
+        sharedvolumeList: {
+          __typename: 'ItPolitoCrownlabsV1alpha2SharedVolumeList',
+          sharedvolumes: [
             {
-              __typename: 'ItPolitoCrownlabsV1alpha1Workspace',
+              __typename: 'ItPolitoCrownlabsV1alpha2SharedVolume',
               metadata: {
                 __typename: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta',
-                name: 'john-doe',
-                namespace: 'workspace-john-doe',
+                name: 'shared-data',
+                namespace: 'tenant-john-doe',
               },
               spec: {
-                __typename: 'Spec2',
-                prettyName: 'Personal Workspace',
+                __typename: 'Spec5',
+                prettyName: 'Shared Data Volume',
+                size: '10Gi',
               },
               status: {
-                __typename: 'Status2',
-                namespace: {
-                  __typename: 'Namespace',
-                  name: 'tenant-john-doe',
-                  created: true,
-                },
-                subscription: {
-                  __typename: 'Subscription',
-                  status: 'Ok',
-                },
-                role: Role.User,
+                __typename: 'Status5',
+                phase: 'Ready',
               },
             },
           ],
@@ -670,25 +443,23 @@ const allMocks = [
   ...workspacesMocks,
   ...workspaceTemplatesMocks,
   ...ownedInstancesMocks,
-  ...instanceSubscriptionMocks,
   ...imagesMocks,
+  ...sharedVolumesMocks,
 ];
 
 let client: ApolloClient<any>;
 
 if (DEV_MODE) {
-  console.log('🚀 Development mode with CORRECTLY MOCKED instances loaded');
+  console.log('🚀 Development mode with CORRECTLY MOCKED data loaded');
   console.log('📊 Available mock data:', {
     tenants: tenantMocks.length,
     workspaces: workspacesMocks.length,
     templates: workspaceTemplatesMocks.length,
     ownedInstances: ownedInstancesMocks.length,
-    instanceSubscriptions: instanceSubscriptionMocks.length,
     images: imagesMocks.length,
+    sharedVolumes: sharedVolumesMocks.length,
     totalMocks: allMocks.length,
   });
-  console.log('🎯 Using OwnedInstancesDocument from generated-types');
-  console.log('👤 Mock user ID should be: john-doe');
 
   const mockLink = new MockLink(allMocks, true);
 
@@ -755,3 +526,32 @@ const ApolloClientSetup: FC<PropsWithChildren> = ({ children }) => {
 };
 
 export default ApolloClientSetup;
+
+// Enhanced logging
+if (DEV_MODE) {
+  console.log('🚀 Development mode with ENHANCED MOCK DATA');
+  console.log('📊 Mock data summary:', {
+    templates: 2, // Python, Jupyter
+    instances: 2, // 2 running
+    expectedUsage: {
+      cpu: '3 cores (2+1 from running instances)',
+      memory: '6Gi (4Gi+2Gi from running instances)',
+      runningInstances: 2,
+    },
+    quota: {
+      cpu: '23 cores total',
+      memory: '48Gi total',
+      instances: '8 instances max',
+    },
+  });
+
+  console.log('📈 Mock counts:', {
+    tenant: tenantMocks.length,
+    workspaces: workspacesMocks.length,
+    templates: workspaceTemplatesMocks.length,
+    ownedInstances: ownedInstancesMocks.length,
+    images: imagesMocks.length,
+    sharedVolumes: sharedVolumesMocks.length,
+    totalMocks: allMocks.length,
+  });
+}

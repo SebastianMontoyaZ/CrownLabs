@@ -6,38 +6,101 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import type { FC } from 'react';
-import { useContext } from 'react';
+import { useContext, useMemo } from 'react';
 import { TenantContext } from '../../../contexts/TenantContext';
+import { ItPolitoCrownlabsV1alpha2Instance } from '../../../generated-types';
 import './QuotaDisplay.less';
 
 const { Text, Title } = Typography;
 
 export interface IQuotaDisplayProps {
   tenantNamespace: string;
+  instances: ItPolitoCrownlabsV1alpha2Instance[];
 }
 
-const QuotaDisplay: FC<IQuotaDisplayProps> = ({ tenantNamespace }) => {
+// Helper function to parse memory string (e.g., "4Gi" -> 4)
+const parseMemory = (memoryStr: string): number => {
+  if (!memoryStr) return 0;
+
+  const match = memoryStr.match(/^(\d+(?:\.\d+)?)(.*)?$/);
+  if (!match) return 0;
+
+  const value = parseFloat(match[1]);
+  const unit = match[2]?.toLowerCase() || '';
+
+  switch (unit) {
+    case 'gi':
+    case 'g':
+      return value;
+    case 'mi':
+    case 'm':
+      return value / 1024;
+    case 'ki':
+    case 'k':
+      return value / (1024 * 1024);
+    case 'ti':
+    case 't':
+      return value * 1024;
+    default:
+      // Assume GB if no unit
+      return value;
+  }
+};
+
+const QuotaDisplay: FC<IQuotaDisplayProps> = ({
+  tenantNamespace,
+  instances,
+}) => {
   const { data: tenantData } = useContext(TenantContext);
 
   // Get actual quota data from tenant context
   const quota = tenantData?.tenant?.status?.quota;
 
-  // Default values if quota is not available
-  const quotaData = {
+  // Calculate current usage from running instances
+  const currentUsage = useMemo(() => {
+    let usedCpu = 0;
+    let usedMemory = 0;
+    let runningInstances = 0;
+
+    instances.forEach(instance => {
+      // Only count running instances
+      if (instance.spec?.running && instance.status?.phase === 'Ready') {
+        runningInstances++;
+
+        // Get CPU and memory from template spec
+        const templateRef = instance.spec?.templateCrownlabsPolitoItTemplateRef;
+        const template =
+          templateRef?.templateWrapper?.itPolitoCrownlabsV1alpha2Template;
+        const environment = template?.spec?.environmentList?.[0];
+
+        if (environment?.resources) {
+          usedCpu += environment.resources.cpu || 0;
+          usedMemory += parseMemory(environment.resources.memory || '0');
+        }
+      }
+    });
+
+    return {
+      cpu: usedCpu,
+      memory: usedMemory,
+      instances: runningInstances,
+    };
+  }, [instances]);
+
+  // Quota limits with defaults
+  const quotaLimits = {
     cpu: quota?.cpu ? parseInt(quota.cpu) : 8,
-    memory: quota?.memory ? parseInt(quota.memory.replace('Gi', '')) : 32,
+    memory: quota?.memory ? parseMemory(quota.memory) : 32,
     instances: quota?.instances || 10,
-    usedCpu: 2, // Mock usage - should come from actual usage data
-    usedMemory: 8, // Mock usage - should come from actual usage data
-    usedInstances: 3, // Mock usage - should come from actual usage data
   };
 
-  const cpuPercent = Math.round((quotaData.usedCpu / quotaData.cpu) * 100);
+  // Calculate percentages
+  const cpuPercent = Math.round((currentUsage.cpu / quotaLimits.cpu) * 100);
   const memoryPercent = Math.round(
-    (quotaData.usedMemory / quotaData.memory) * 100
+    (currentUsage.memory / quotaLimits.memory) * 100
   );
   const instancesPercent = Math.round(
-    (quotaData.usedInstances / quotaData.instances) * 100
+    (currentUsage.instances / quotaLimits.instances) * 100
   );
 
   const getProgressColor = (percent: number) => {
@@ -54,11 +117,11 @@ const QuotaDisplay: FC<IQuotaDisplayProps> = ({ tenantNamespace }) => {
             <Space>
               <InfoCircleOutlined className="primary-color-fg" />
               <Title level={5} style={{ margin: 0 }}>
-                Workspace Resources
+                Resource Usage
               </Title>
             </Space>
             <Text type="secondary" style={{ fontSize: '12px' }}>
-              Available quota for this workspace
+              Current usage from running instances
             </Text>
           </Space>
         </Col>
@@ -75,7 +138,7 @@ const QuotaDisplay: FC<IQuotaDisplayProps> = ({ tenantNamespace }) => {
                   <Space>
                     <DesktopOutlined className="primary-color-fg" />
                     <Text strong>
-                      {quotaData.usedCpu}/{quotaData.cpu}
+                      {currentUsage.cpu}/{quotaLimits.cpu}
                     </Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
                       CPU cores
@@ -104,7 +167,7 @@ const QuotaDisplay: FC<IQuotaDisplayProps> = ({ tenantNamespace }) => {
                   <Space>
                     <DatabaseOutlined className="success-color-fg" />
                     <Text strong>
-                      {quotaData.usedMemory}/{quotaData.memory}
+                      {currentUsage.memory.toFixed(1)}/{quotaLimits.memory}
                     </Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
                       GB RAM
@@ -133,10 +196,10 @@ const QuotaDisplay: FC<IQuotaDisplayProps> = ({ tenantNamespace }) => {
                   <Space>
                     <CloudOutlined className="warning-color-fg" />
                     <Text strong>
-                      {quotaData.usedInstances}/{quotaData.instances}
+                      {currentUsage.instances}/{quotaLimits.instances}
                     </Text>
                     <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Instances
+                      Running instances
                     </Text>
                   </Space>
                   <Progress

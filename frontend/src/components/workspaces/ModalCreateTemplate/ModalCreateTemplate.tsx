@@ -24,7 +24,7 @@ import type {
 } from '../../../generated-types';
 import type { FetchResult } from '@apollo/client';
 import { ErrorContext } from '../../../errorHandling/ErrorContext';
-import ShVolFormItem, { type ShVolFormItemValue } from './ShVolFormItem';
+import ShVolFormItem, { ShVolFormItemValue } from './ShVolFormItem';
 import {
   PlusOutlined,
   EditOutlined,
