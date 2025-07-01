@@ -16,6 +16,15 @@ import {
   Tooltip,
   AutoComplete,
 } from 'antd';
+import type {
+  CreateTemplateMutation,
+  SharedVolumeMountsListItem,
+  EnvironmentType,
+  useWorkspaceTemplatesQuery,
+} from '../../../generated-types';
+import type { FetchResult } from '@apollo/client';
+import { ErrorContext } from '../../../errorHandling/ErrorContext';
+import ShVolFormItem, { type ShVolFormItemValue } from './ShVolFormItem';
 import {
   PlusOutlined,
   EditOutlined,
@@ -26,8 +35,11 @@ import {
   RocketOutlined,
   CodeOutlined,
 } from '@ant-design/icons';
-import type { FC } from 'react';
-
+const alternativeHandle = { border: 'solid 2px #1c7afdd8' };
+export type Image = {
+  name: string;
+  registry: string;
+};
 const { Option } = Select;
 const { TextArea } = Input;
 const { TabPane } = Tabs;

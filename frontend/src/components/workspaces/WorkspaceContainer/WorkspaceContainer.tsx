@@ -18,6 +18,7 @@ import type { FC } from 'react';
 import { useContext, useState } from 'react';
 import { ErrorContext } from '../../../errorHandling/ErrorContext';
 import { TenantContext } from '../../../contexts/TenantContext';
+import { TenantContext } from '../../../contexts/TenantContext';
 import type { ImagesQuery } from '../../../generated-types';
 import {
   EnvironmentType,
@@ -34,6 +35,7 @@ import ModalCreateTemplate, {
   ContainerImageSpec,
   VMImageSpec,
 } from '../ModalCreateTemplate/ModalCreateTemplate';
+import QuotaDisplay from '../QuotaDisplay/QuotaDisplay';
 import QuotaDisplay from '../QuotaDisplay/QuotaDisplay';
 import { TemplatesTableLogic } from '../Templates/TemplatesTableLogic';
 
@@ -81,6 +83,19 @@ const isPersonalWorkspace = (
   );
 };
 
+// Helper function to determine if workspace is personal
+const isPersonalWorkspace = (
+  workspace: Workspace,
+  tenantNamespace: string
+): boolean => {
+  // Check if workspace namespace matches tenant namespace (personal workspace pattern)
+  return (
+    workspace.namespace === tenantNamespace ||
+    workspace.name.includes('personal') ||
+    workspace.namespace.includes(tenantNamespace)
+  );
+};
+
 const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
   const [showUserListModal, setShowUserListModal] = useState<boolean>(false);
   const [showCreateInstanceModal, setShowCreateInstanceModal] =
@@ -88,6 +103,7 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
   const [show, setShow] = useState(false);
 
   const { tenantNamespace, workspace } = props;
+  const isPersonal = isPersonalWorkspace(workspace, tenantNamespace);
   const isPersonal = isPersonalWorkspace(workspace, tenantNamespace);
 
   const { apolloErrorCatcher } = useContext(ErrorContext);
@@ -187,6 +203,11 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
             <div className="h-full flex justify-center items-center px-5">
               <p className="md:text-4xl text-2xl text-center mb-0">
                 <b>{workspace.prettyName}</b>
+                {isPersonal && (
+                  <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                    Personal
+                  </span>
+                )}
                 {isPersonal && (
                   <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
                     Personal
