@@ -1,4 +1,4 @@
-import { Modal, Input, Button } from 'antd';
+import { Modal, Input, Button ,Checkbox} from 'antd';
 import { useState } from 'react';
 
 interface ModalAddTemplateYamlProps {
@@ -9,6 +9,7 @@ interface ModalAddTemplateYamlProps {
 
 const ModalAddTemplateYaml: React.FC<ModalAddTemplateYamlProps> = ({ visible, onCancel, onAdd }) => {
   const [yaml, setYaml] = useState('');
+  const [isPersonal, setIsPersonal] = useState(false);
   return (
     <Modal
       title="Add Template (YAML)"
@@ -25,6 +26,17 @@ const ModalAddTemplateYaml: React.FC<ModalAddTemplateYamlProps> = ({ visible, on
         onChange={e => setYaml(e.target.value)}
         placeholder="Paste your Template YAML here"
       />
+      
+          <div className="mt-3">
+            <span>Personal Template:</span>
+            <Checkbox
+              className="ml-3"
+              checked={isPersonal}
+              onChange={(e) =>
+                setIsPersonal(e.target.checked)
+              }
+            />
+          </div>
     </Modal>
   );
 };

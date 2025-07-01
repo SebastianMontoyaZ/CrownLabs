@@ -12,6 +12,7 @@ import {
 import { JSONDeepCopy, Workspace, WorkspaceRole } from '../../../utils';
 import UserListLogic from '../../accountPage/UserListLogic/UserListLogic';
 import Box from '../../common/Box';
+import { TenantContext } from '../../../contexts/TenantContext';
 import ModalCreateTemplate from '../ModalCreateTemplate';
 import { Image, Template } from '../ModalCreateTemplate/ModalCreateTemplate';
 import ModalAddTemplateYaml from '../ModalAddTemplateYaml/ModalAddTemplateYaml';
@@ -58,6 +59,8 @@ const getImages = (dataImages: ImagesQuery) => {
 };
 
 const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
+  const { data } = useContext(TenantContext);
+  const tenantId = data?.tenant?.metadata?.name!;
   const [showUserListModal, setShowUserListModal] = useState<boolean>(false);
 
   const { tenantNamespace, workspace } = props;
@@ -105,11 +108,17 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
       },
     });
 
-  const handleAddTemplateYaml = async (yaml: string) => {
+  const handleAddTemplateYaml = async (yaml: string, isPersonal: boolean = false) => {
+    if (isPersonal) {
     await createTemplateFromYaml({
       yaml,
-      workspaceNamespace: workspace.namespace, // pass the correct namespace
-    });
+      workspaceNamespace: workspace.namespace+tenantId, // pass the correct namespace
+      
+    });}else{
+      await createTemplateFromYaml({
+        yaml,
+        workspaceNamespace: workspace.namespace}); // pass the correct
+    }
     setShowAddYamlModal(false);
   };
 
@@ -132,7 +141,7 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
         onAdd={handleAddTemplateYaml}
       />
       <Box
-        header={{
+        header={{ 
           size: 'large',
           center: (
             <div className="h-full flex justify-center items-center px-5">
