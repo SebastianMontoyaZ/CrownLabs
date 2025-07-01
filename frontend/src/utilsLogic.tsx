@@ -2,13 +2,11 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
-import { FetchResult, MutationFunctionOptions } from '@apollo/client';
-import { message } from 'antd';
-import Button from 'antd-button-color';
-import { Dispatch, SetStateAction } from 'react';
-import {
+import type { FetchResult, MutationFunctionOptions } from '@apollo/client';
+import { Button } from 'antd';
+import { type Dispatch, type SetStateAction } from 'react';
+import type {
   ApplyInstanceMutation,
-  AutoEnroll,
   Exact,
   ItPolitoCrownlabsV1alpha1Workspace,
   ItPolitoCrownlabsV1alpha2Instance,
@@ -16,24 +14,22 @@ import {
   ItPolitoCrownlabsV1alpha2Template,
   Maybe,
   OwnedInstancesQuery,
-  Phase,
   UpdatedOwnedInstancesSubscriptionResult,
-  UpdatedWorkspaceTemplatesSubscriptionResult,
-  UpdateType,
   WorkspacesListItem,
-  WorkspaceTemplatesQuery,
 } from './generated-types';
+import { AutoEnroll, Phase, UpdateType } from './generated-types';
 import { getInstancePatchJson } from './graphql-components/utils';
-import {
+import type {
   Instance,
   SharedVolume,
   Template,
   Workspace,
-  WorkspaceRole,
   WorkspacesAvailable,
-  WorkspacesAvailableAction,
 } from './utils';
-import { DeepPartial } from '@apollo/client/utilities';
+import { WorkspaceRole, WorkspacesAvailableAction } from './utils';
+import type { DeepPartial } from '@apollo/client/utilities';
+import type { JointContent } from 'antd/lib/message/interface';
+import type { Notifier } from './contexts/TenantContext';
 
 type Nullable<T> = T | null | undefined;
 
@@ -52,11 +48,11 @@ interface ItPolitoCrownlabsV1alpha2TemplateAlias {
   };
 }
 export const makeGuiTemplate = (
-  tq: ItPolitoCrownlabsV1alpha2TemplateAlias
+  tq: ItPolitoCrownlabsV1alpha2TemplateAlias,
 ): Template => {
   if (!tq.original) {
     throw new Error(
-      'makeGuiTemplate() error: a required parameter is undefined'
+      'makeGuiTemplate() error: a required parameter is undefined',
     );
   }
   const environment = (tq.original.spec?.environmentList ?? [])[0];
@@ -79,60 +75,6 @@ export const makeGuiTemplate = (
       (tq.original.spec?.workspaceCrownlabsPolitoItWorkspaceRef?.name ?? ''),
   } as Template;
 };
-interface TemplatesSubscriptionData {
-  subscriptionData: { data: WorkspaceTemplatesQuery };
-}
-export const updateQueryWorkspaceTemplatesQuery = (
-  setDataTemplate: Dispatch<SetStateAction<Template[]>>
-) => {
-  return (
-    prev: WorkspaceTemplatesQuery,
-    subscriptionDataObject: TemplatesSubscriptionData
-  ) => {
-    const { data } =
-      subscriptionDataObject.subscriptionData as UpdatedWorkspaceTemplatesSubscriptionResult;
-    const template = data?.updatedTemplate?.template;
-    const { updateType } = data?.updatedTemplate ?? {
-      updateType: UpdateType.Added,
-    };
-
-    if (prev.templateList?.templates) {
-      if (updateType === UpdateType.Deleted) {
-        setDataTemplate(old =>
-          old.filter(t => t.id !== template?.metadata?.name)
-        );
-      } else if (updateType === UpdateType.Modified) {
-        setDataTemplate(old =>
-          old.map(t =>
-            t.id === template?.metadata?.name
-              ? makeGuiTemplate({
-                  original: template,
-                  alias: {
-                    id: template.metadata.name,
-                    name: template.spec?.prettyName ?? '',
-                  },
-                })
-              : t
-          )
-        );
-      } else if (updateType === UpdateType.Added) {
-        setDataTemplate(old =>
-          [
-            ...old,
-            makeGuiTemplate({
-              original: template,
-              alias: {
-                id: template?.metadata?.name ?? '',
-                name: template?.spec?.prettyName ?? '',
-              },
-            }),
-          ].sort((a, b) => a.name.localeCompare(b.name))
-        );
-      }
-    }
-    return prev;
-  };
-};
 
 export type InstanceLabels = {
   crownlabsPolitoItManagedBy?: string;
@@ -142,7 +84,7 @@ export type InstanceLabels = {
 };
 
 export const getInstanceLabels = (
-  i: DeepPartial<ItPolitoCrownlabsV1alpha2Instance>
+  i: DeepPartial<ItPolitoCrownlabsV1alpha2Instance>,
 ): InstanceLabels | undefined => i.metadata?.labels as InstanceLabels;
 
 export const makeGuiInstance = (
@@ -151,7 +93,7 @@ export const makeGuiInstance = (
   optional?: {
     workspaceName: string;
     templateName: string;
-  }
+  },
 ) => {
   console.log('makeGuiInstance', instance, userId, optional);
   if (!instance || !userId) {
@@ -169,7 +111,7 @@ export const makeGuiInstance = (
     environmentList: [],
     prettyName: '',
   };
-  const templateName = spec?.templateCrownlabsPolitoItTemplateRef?.name as any;
+  const templateName = spec?.templateCrownlabsPolitoItTemplateRef?.name;
   const { guiEnabled, persistent, environmentType } =
     (environmentList ?? [])[0] ?? {};
 
@@ -189,7 +131,7 @@ export const makeGuiInstance = (
         '',
       getInstanceLabels(instance)?.crownlabsPolitoItWorkspace ??
         optional?.workspaceName ??
-        ''
+        '',
     ),
     environmentType: environmentType,
     ip: status?.ip,
@@ -207,7 +149,7 @@ export const makeGuiInstance = (
 };
 
 export const makeWorkspace = (
-  workspace: Nullable<DeepPartial<WorkspacesListItem>>
+  workspace: Nullable<DeepPartial<WorkspacesListItem>>,
 ) => {
   if (!workspace) {
     throw new Error('getInstances() error: a required parameter is undefined');
@@ -230,18 +172,19 @@ interface InstancesSubscriptionData {
 }
 export const updateQueryOwnedInstancesQuery = (
   setDataInstances: Dispatch<SetStateAction<Instance[]>>,
-  userId: string
+  userId: string,
+  notifier: Notifier,
 ) => {
   return (
     prev: OwnedInstancesQuery,
-    subscriptionDataObject: InstancesSubscriptionData
+    subscriptionDataObject: InstancesSubscriptionData,
   ) => {
     const { data } =
       subscriptionDataObject.subscriptionData as UpdatedOwnedInstancesSubscriptionResult;
 
     if (!data?.updateInstance?.instance) return prev;
 
-    const { instance: instanceK8s, updateType } = data?.updateInstance;
+    const { instance: instanceK8s, updateType } = data.updateInstance;
     let notify = false;
 
     setDataInstances(old => {
@@ -273,7 +216,12 @@ export const updateQueryOwnedInstancesQuery = (
       }
 
       if (notify)
-        notifyStatus(instanceK8s.status?.phase, instanceK8s, updateType);
+        notifyStatus(
+          instanceK8s.status?.phase,
+          instanceK8s,
+          updateType,
+          notifier,
+        );
 
       return old;
     });
@@ -285,7 +233,7 @@ export const updateQueryOwnedInstancesQuery = (
 export const getSubObjTypeCustom = (
   oldObj: Nullable<Instance>,
   newObj: Instance,
-  uType: Nullable<UpdateType>
+  uType: Nullable<UpdateType>,
 ) => {
   if (uType === UpdateType.Deleted) return SubObjType.Deletion;
   const { running: oldRunning, status: oldStatus } = oldObj ?? {};
@@ -303,7 +251,7 @@ export const getSubObjTypeCustom = (
 export const getSubObjTypeK8s = (
   oldObj: Nullable<DeepPartial<ItPolitoCrownlabsV1alpha2Instance>>,
   newObj: DeepPartial<ItPolitoCrownlabsV1alpha2Instance>,
-  uType: Nullable<UpdateType>
+  uType: Nullable<UpdateType>,
 ) => {
   if (uType === UpdateType.Deleted) return SubObjType.Deletion;
   const { spec: oldSpec, status: oldStatus } = oldObj ?? {};
@@ -324,22 +272,22 @@ export const getSubObjTypeK8s = (
 
 export const joinInstancesAndTemplates = (
   templates: Template[],
-  instances: Instance[]
+  instances: Instance[],
 ) =>
   templates.map(t => ({
     ...t,
     instances: instances.filter(
-      i => i.templateId === makeTemplateKey(t.id, t.workspaceName)
+      i => i.templateId === makeTemplateKey(t.id, t.workspaceName),
     ),
   }));
 
 export const availableWorkspaces = (
   workspaces: Maybe<DeepPartial<ItPolitoCrownlabsV1alpha1Workspace>>[],
-  userWorkspaces: Workspace[]
-) => {
-  return workspaces
+  userWorkspaces: Workspace[],
+) =>
+  workspaces
     .map(w => {
-      let wa: WorkspacesAvailable = {
+      const wa: WorkspacesAvailable = {
         name: w?.metadata?.name ?? '',
         prettyName: w?.spec?.prettyName ?? '',
         role:
@@ -362,14 +310,16 @@ export const availableWorkspaces = (
       }
       return wa;
     })
-    .filter(w => w.action !== WorkspacesAvailableAction.None);
-};
+    .filter(w => w.action !== WorkspacesAvailableAction.None)
+    .sort((a, b) =>
+      a.prettyName?.toLowerCase() < b.prettyName?.toLowerCase() ? -1 : 1,
+    );
 
 //Utilities for active page only
 
 export const getManagerInstances = (
   instance: Nullable<DeepPartial<ItPolitoCrownlabsV1alpha2Instance>>,
-  index: number
+  _index: number,
 ) => {
   if (!instance) {
     throw new Error('getInstances() error: a required parameter is undefined');
@@ -423,12 +373,12 @@ export const getTemplatesMapped = (
     sortingType: string;
     sorting: number;
     sortingTemplate: string;
-  }>
+  }>,
 ) => {
   return Array.from(new Set(instances?.map(i => i.templateId))).map(t => {
     // Find all instances with KEY[Template ID + Workspace ID] === t
     const instancesFiltered = instances?.filter(
-      ({ templateId: tid }) => tid === t
+      ({ templateId: tid }) => tid === t,
     );
 
     // Find sorting data for instances with KEY[Template ID + Workspace ID] === t
@@ -439,7 +389,7 @@ export const getTemplatesMapped = (
     if (sortDataTmp) {
       const { sorting, sortingType } = sortDataTmp;
       instancesSorted = instancesFiltered.sort((a, b) =>
-        sorter(a, b, sortingType as keyof Instance, sorting)
+        sorter(a, b, sortingType as keyof Instance, sorting),
       );
     }
 
@@ -460,7 +410,7 @@ export const getTemplatesMapped = (
 
 export const getWorkspacesMapped = (
   templates: Template[],
-  workspaces: Workspace[]
+  workspaces: Workspace[],
 ) => {
   return workspaces
     .map(ws => ({
@@ -477,7 +427,7 @@ const makeNotificationContent = (
   templateName: Nullable<string>,
   instanceName: Nullable<string>,
   status: Nullable<string>,
-  instanceUrl?: Nullable<string>
+  instanceUrl?: Nullable<string>,
 ) => {
   const font20px = { fontSize: '20px' };
   return {
@@ -515,7 +465,8 @@ const makeNotificationContent = (
             </div>
             {instanceUrl && (
               <Button
-                type="success"
+                color="green"
+                variant="solid"
                 size="small"
                 href={instanceUrl}
                 target="_blank"
@@ -530,19 +481,20 @@ const makeNotificationContent = (
     icon: <></>,
     className: 'mr-6 flex justify-end',
     duration: 5,
-  };
+  } as JointContent;
 };
 
 export const notifyStatus = (
   status: Nullable<string>,
   instance: Nullable<DeepPartial<ItPolitoCrownlabsV1alpha2Instance>>,
-  updateType: Nullable<UpdateType>
+  updateType: Nullable<UpdateType>,
+  notify: Notifier,
 ) => {
   if (!instance) {
     throw new Error('notifyStatus error: instance parameter is undefined');
   }
   if (updateType !== UpdateType.Deleted) {
-    const { name } = instance.metadata ?? {};
+    const { name, namespace } = instance.metadata ?? {};
     const { prettyName } = instance.spec ?? {};
     const { url } = instance.status ?? {};
     const { prettyName: templateName } =
@@ -551,21 +503,27 @@ export const notifyStatus = (
 
     switch (status) {
       case Phase.Off:
-        !instance.spec?.running &&
-          message.warning(
-            makeNotificationContent(templateName, prettyName || name, status)
+        if (!instance.spec?.running) {
+          notify(
+            'warning',
+            `${namespace}/${name}/stopped`,
+            makeNotificationContent(templateName, prettyName || name, status),
           );
+        }
         break;
       case Phase.Ready:
-        instance.spec?.running &&
-          message.success(
+        if (instance.spec?.running) {
+          notify(
+            'success',
+            `${namespace}/${name}/ready`,
             makeNotificationContent(
               templateName,
               prettyName || name,
               status,
-              url
-            )
+              url,
+            ),
           );
+        }
         break;
     }
   }
@@ -586,19 +544,9 @@ export function sorter<T>(a: T, b: T, key: keyof T, value: number): number {
   const valB = b[key];
   let result = 1;
   if (typeof valA === 'string' && typeof valB === 'string') {
-    result = valA?.toLowerCase()! < valB?.toLowerCase()! ? 1 : -1;
+    result = valA?.toLowerCase() < valB?.toLowerCase() ? 1 : -1;
   }
   return value === 1 ? result : result * -1;
-}
-
-export enum DropDownAction {
-  start = 'start',
-  stop = 'stop',
-  destroy = 'destroy',
-  connect = 'connect',
-  ssh = 'ssh',
-  upload = 'upload',
-  destroy_all = 'destroy_all',
 }
 
 export const setInstanceRunning = async (
@@ -613,14 +561,18 @@ export const setInstanceRunning = async (
         patchJson: string;
         manager: string;
       }>
-    >
+    >,
   ) => Promise<
-    FetchResult<ApplyInstanceMutation, Record<string, any>, Record<string, any>>
-  >
+    FetchResult<
+      ApplyInstanceMutation,
+      Record<string, unknown>,
+      Record<string, unknown>
+    >
+  >,
 ) => {
   if (!instance) {
     throw new Error(
-      'setInstanceRunning error: instance parameter is undefined'
+      'setInstanceRunning error: instance parameter is undefined',
     );
   }
   try {
@@ -649,14 +601,18 @@ export const setInstancePrettyname = async (
         patchJson: string;
         manager: string;
       }>
-    >
+    >,
   ) => Promise<
-    FetchResult<ApplyInstanceMutation, Record<string, any>, Record<string, any>>
-  >
+    FetchResult<
+      ApplyInstanceMutation,
+      Record<string, unknown>,
+      Record<string, unknown>
+    >
+  >,
 ) => {
   if (!instance) {
     throw new Error(
-      'setInstancePrettyname error: instance parameter is undefined'
+      'setInstancePrettyname error: instance parameter is undefined',
     );
   }
   try {
@@ -674,17 +630,17 @@ export const setInstancePrettyname = async (
 };
 
 export const workspaceGetName = (
-  ws: Nullable<DeepPartial<WorkspacesListItem>>
+  ws: Nullable<DeepPartial<WorkspacesListItem>>,
 ): string =>
   ws?.workspaceWrapperTenantV1alpha2?.itPolitoCrownlabsV1alpha1Workspace?.spec
     ?.prettyName ?? '';
 
 export const makeGuiSharedVolume = (
-  shVol?: Nullable<ItPolitoCrownlabsV1alpha2SharedVolume>
+  shVol?: Nullable<ItPolitoCrownlabsV1alpha2SharedVolume>,
 ) => {
   if (!shVol) {
     throw new Error(
-      'getSharedVolumes() error: a required parameter is undefined'
+      'getSharedVolumes() error: a required parameter is undefined',
     );
   }
 

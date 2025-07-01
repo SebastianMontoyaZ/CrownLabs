@@ -20,18 +20,35 @@ import {
   FileTextOutlined,
   MoreOutlined,
 } from '@ant-design/icons';
+<<<<<<< HEAD
 import { FetchResult } from '@apollo/client';
 import { TenantContext } from '../../../../contexts/TenantContext';
 import { validateResourceAgainstQuota } from '../../../../utils/quotaValidation';
+=======
+import { Space, Tooltip, Dropdown, Badge } from 'antd';
+import { Button } from 'antd';
+import type { FetchResult } from '@apollo/client';
+import type { FC } from 'react';
+import { useCallback, useContext, useState } from 'react';
+import SvgInfinite from '../../../../assets/infinite.svg?react';
+>>>>>>> master
 import { ErrorContext } from '../../../../errorHandling/ErrorContext';
-import {
+import type {
   CreateInstanceMutation,
   DeleteTemplateMutation,
+} from '../../../../generated-types';
+import {
   useInstancesLabelSelectorQuery,
   useNodesLabelsQuery,
 } from '../../../../generated-types';
+<<<<<<< HEAD
 import { cleanupLabels, Template, WorkspaceRole } from '../../../../utils';
 import Badge from '../../../common/Badge';
+=======
+import { TenantContext } from '../../../../contexts/TenantContext';
+import type { Template } from '../../../../utils';
+import { cleanupLabels, WorkspaceRole } from '../../../../utils';
+>>>>>>> master
 import { ModalAlert } from '../../../common/ModalAlert';
 import { TemplatesTableRowSettings } from '../TemplatesTableRowSettings';
 import NodeSelectorIcon from '../../../common/NodeSelectorIcon/NodeSelectorIcon';
@@ -42,23 +59,23 @@ export interface ITemplatesTableRowProps {
   totalInstances: number;
   editTemplate: (id: string) => void;
   deleteTemplate: (
-    id: string
+    id: string,
   ) => Promise<
     FetchResult<
       DeleteTemplateMutation,
-      Record<string, any>,
-      Record<string, any>
+      Record<string, unknown>,
+      Record<string, unknown>
     >
   >;
   deleteTemplateLoading: boolean;
   createInstance: (
     id: string,
-    labelSelector?: JSON
+    labelSelector?: JSON,
   ) => Promise<
     FetchResult<
       CreateInstanceMutation,
-      Record<string, any>,
-      Record<string, any>
+      Record<string, unknown>,
+      Record<string, unknown>
     >
   >;
   expandRow: (value: string, create: boolean) => void;
@@ -106,6 +123,7 @@ const TemplatesTableRow: React.FC<ITemplatesTableRowProps> = ({
   const [showDeleteModalConfirm, setShowDeleteModalConfirm] = useState(false);
   const [createDisabled, setCreateDisabled] = useState(false);
 
+<<<<<<< HEAD
   const [showLogs, setShowLogs] = useState(false);
   const [logsContent, setLogsContent] = useState('');
 
@@ -116,6 +134,9 @@ const TemplatesTableRow: React.FC<ITemplatesTableRowProps> = ({
   };
 
   const createInstanceHandler = () => {
+=======
+  const createInstanceHandler = useCallback(() => {
+>>>>>>> master
     setCreateDisabled(true);
     createInstance(template.id)
       .then(() => {
@@ -124,10 +145,11 @@ const TemplatesTableRow: React.FC<ITemplatesTableRowProps> = ({
         expandRow(template.id, true);
       })
       .catch(() => setCreateDisabled(false));
-  };
+  }, [createInstance, expandRow, refreshClock, template.id]);
 
   const instancesLimit = data?.tenant?.status?.quota?.instances ?? 1;
 
+<<<<<<< HEAD
   const nodesLabels = useMemo(() => {
     const handleNodeLabelClick = (info: { key: string }) => {
       createInstance(template.id, JSON.parse(info.key))
@@ -291,6 +313,8 @@ const TemplatesTableRow: React.FC<ITemplatesTableRowProps> = ({
 
   const menu = <Menu items={menuItems} />;
 
+=======
+>>>>>>> master
   return (
     <>
       <ModalAlert
@@ -332,13 +356,17 @@ const TemplatesTableRow: React.FC<ITemplatesTableRowProps> = ({
             key={1}
             shape="round"
             className="ml-2 w-24"
+<<<<<<< HEAD
             type="primary"
             danger // ✅ Fixed: Use danger prop instead of type="danger"
+=======
+            color="danger"
+>>>>>>> master
             loading={deleteTemplateLoading}
             onClick={() =>
               deleteTemplate(template.id)
                 .then(() => setShowDeleteModalConfirm(false))
-                .catch(err => null)
+                .catch(console.warn)
             }
           >
             {!deleteTemplateLoading && 'Delete'}
@@ -398,16 +426,22 @@ const TemplatesTableRow: React.FC<ITemplatesTableRowProps> = ({
         </div>
 
         <Space size="small">
-          <Badge
-            value={template.instances.length}
-            size="small"
-            className="mx-2"
-          />
+          {template.instances.length ? (
+            <Badge
+              count={template.instances.length}
+              color="blue"
+              className="mx-2"
+            />
+          ) : (
+            ''
+          )}
           <Tooltip
             placement="left"
             title={
               <>
-                <div>CPU: {template.resources.cpu || 'unavailable'} Core</div>
+                <div>
+                  CPU: {template.resources.cpu || 'unavailable'} core(s)
+                </div>
                 <div>
                   RAM: {convertInG(template.resources.memory) || 'unavailable'}B
                 </div>
@@ -421,9 +455,13 @@ const TemplatesTableRow: React.FC<ITemplatesTableRowProps> = ({
               </>
             }
           >
+<<<<<<< HEAD
             <Button type="link" size="middle" className="px-0">
               {' '}
               {/* ✅ Fixed: Use type="link" and remove invalid type="warning" */}
+=======
+            <Button type="link" color="orange" size="middle" className="px-0">
+>>>>>>> master
               Info
             </Button>
           </Tooltip>
@@ -473,7 +511,7 @@ const TemplatesTableRow: React.FC<ITemplatesTableRowProps> = ({
                       setShowDeleteModalConfirm(true);
                     else setShowDeleteModalNotPossible(true);
                   })
-                  .catch(err => null);
+                  .catch(console.warn);
               }}
             />
           ) : (
@@ -481,7 +519,12 @@ const TemplatesTableRow: React.FC<ITemplatesTableRowProps> = ({
               <Button
                 onClick={createInstanceHandler}
                 className="xs:hidden block"
+<<<<<<< HEAD
                 type="link" // ✅ Fixed: Use type="link" instead of with="link"
+=======
+                type="link"
+                color="primary"
+>>>>>>> master
                 size="large"
                 icon={<PlayCircleOutlined style={{ fontSize: '22px' }} />}
               />
@@ -519,7 +562,33 @@ const TemplatesTableRow: React.FC<ITemplatesTableRowProps> = ({
           ) : template.nodeSelector &&
             JSON.stringify(template.nodeSelector) === '{}' ? (
             <Dropdown.Button
-              overlay={nodesLabels}
+              menu={{
+                items:
+                  loadingLabels || labelsError
+                    ? [
+                        {
+                          key: 'error',
+                          label: loadingLabels
+                            ? 'Loading labels...'
+                            : 'Error loading labels',
+                          disabled: true,
+                        },
+                      ]
+                    : labelsData?.labels?.map(({ key, value }) => ({
+                        key: JSON.stringify({ [key]: value }),
+                        label: `${cleanupLabels(key)}=${value}`,
+                        disabled: loadingLabels,
+                        onClick: () => {
+                          createInstance(template.id, JSON.parse(key))
+                            .then(() => {
+                              refreshClock();
+                              setTimeout(setCreateDisabled, 400, false);
+                              expandRow(template.id, true);
+                            })
+                            .catch(() => setCreateDisabled(false));
+                        },
+                      })) || [],
+              }}
               onClick={createInstanceHandler}
               disabled={!canDeploy || createDisabled}
               type="primary"

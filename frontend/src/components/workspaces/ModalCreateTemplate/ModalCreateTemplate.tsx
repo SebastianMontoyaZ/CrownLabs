@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 import React, { useState, useEffect } from 'react';
+=======
+import type { FC } from 'react';
+import { useState, useEffect, useContext } from 'react';
+>>>>>>> master
 import {
   Modal,
   Select,
@@ -16,14 +21,24 @@ import {
   Tooltip,
   AutoComplete,
 } from 'antd';
+<<<<<<< HEAD
 import type {
   CreateTemplateMutation,
   SharedVolumeMountsListItem,
+=======
+import { Button } from 'antd';
+import type {
+  CreateTemplateMutation,
+  SharedVolumeMountsListItem,
+} from '../../../generated-types';
+import {
+>>>>>>> master
   EnvironmentType,
   useWorkspaceTemplatesQuery,
 } from '../../../generated-types';
 import type { FetchResult } from '@apollo/client';
 import { ErrorContext } from '../../../errorHandling/ErrorContext';
+<<<<<<< HEAD
 import ShVolFormItem, { ShVolFormItemValue } from './ShVolFormItem';
 import {
   PlusOutlined,
@@ -35,9 +50,17 @@ import {
   RocketOutlined,
   CodeOutlined,
 } from '@ant-design/icons';
+=======
+import ShVolFormItem, { type ShVolFormItemValue } from './ShVolFormItem';
+
+>>>>>>> master
 const alternativeHandle = { border: 'solid 2px #1c7afdd8' };
 export type Image = {
   name: string;
+<<<<<<< HEAD
+=======
+  vmorcontainer: Array<VmOrContainer>;
+>>>>>>> master
   registry: string;
 };
 const { Option } = Select;
@@ -50,12 +73,16 @@ export interface ContainerImageSpec {
   versions: string[];
 }
 
+<<<<<<< HEAD
 export interface VMImageSpec {
   name: string;
   registry: string;
   tag: string;
   description?: string;
 }
+=======
+type VmOrContainer = EnvironmentType.VirtualMachine | EnvironmentType.Container;
+>>>>>>> master
 
 export interface Template {
   // Template metadata
@@ -67,10 +94,23 @@ export interface Template {
   environmentName?: string;
   environmentType?: 'Container' | 'VirtualMachine';
   image?: string;
+<<<<<<< HEAD
   guiEnabled?: boolean;
   persistent?: boolean;
   mode?: 'Standard' | 'Exam' | 'Exercise';
   mountMyDriveVolume?: boolean;
+=======
+  registry?: string;
+  vmorcontainer?: VmOrContainer;
+  persistent: boolean;
+  mountMyDrive: boolean;
+  gui: boolean;
+  cpu: number;
+  ram: number;
+  disk: number;
+  sharedVolumeMountInfos?: SharedVolumeMountsListItem[];
+};
+>>>>>>> master
 
   // Resources
   cpu?: number;
@@ -102,7 +142,20 @@ export interface IModalCreateTemplateProps {
   diskQuota: number;
   setShow: (show: boolean) => void;
   show: boolean;
+<<<<<<< HEAD
   submitHandler: (template: Template) => void;
+=======
+  setShow: (status: boolean) => void;
+  submitHandler: (
+    t: Template,
+  ) => Promise<
+    FetchResult<
+      CreateTemplateMutation,
+      Record<string, unknown>,
+      Record<string, unknown>
+    >
+  >;
+>>>>>>> master
   loading: boolean;
   existingTemplates?: any[];
   containerImages?: ContainerImageSpec[];
@@ -208,6 +261,7 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({
 
   // Reset form when modal opens/closes
   useEffect(() => {
+<<<<<<< HEAD
     if (show) {
       setSelectedTemplate(CREATE_NEW_TEMPLATE_VALUE);
       setIsEditing(false);
@@ -217,6 +271,61 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({
       setCloudInit(defaultCloudInit);
       setCustomImageUrl('');
       form.resetFields();
+=======
+    if (
+      formTemplate.name &&
+      formTemplate.image &&
+      formTemplate.vmorcontainer &&
+      valid.name.status === 'success' &&
+      (template
+        ? template.name !== formTemplate.name ||
+          template.image !== formTemplate.image ||
+          template.vmorcontainer !== formTemplate.vmorcontainer ||
+          template.gui !== formTemplate.gui ||
+          template.persistent !== formTemplate.persistent ||
+          template.cpu !== formTemplate.cpu ||
+          template.ram !== formTemplate.ram ||
+          template.disk !== formTemplate.disk ||
+          JSON.stringify(template.sharedVolumeMountInfos) !==
+            JSON.stringify(formTemplate.sharedVolumeMountInfos)
+        : true)
+    )
+      setButtonDisabled(false);
+    else setButtonDisabled(true);
+  }, [formTemplate, template, valid.name.status]);
+
+  const nameValidator = () => {
+    if (formTemplate.name === '' || formTemplate.name === undefined) {
+      setValid(old => {
+        return {
+          ...old,
+          name: { status: 'error', help: 'Please insert template name' },
+        };
+      });
+    } else if (
+      !errorFetchTemplates &&
+      !loadingFetchTemplates &&
+      dataFetchTemplates?.templateList?.templates
+        ?.map(t => t?.spec?.prettyName)
+        .includes(formTemplate.name.trim())
+    ) {
+      setValid(old => {
+        return {
+          ...old,
+          name: {
+            status: 'error',
+            help: 'This name has already been used in this workspace',
+          },
+        };
+      });
+    } else {
+      setValid(old => {
+        return {
+          ...old,
+          name: { status: 'success', help: undefined },
+        };
+      });
+>>>>>>> master
     }
   }, [show]);
 
@@ -288,6 +397,7 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({
     setCustomImageUrl('');
   };
 
+<<<<<<< HEAD
   // Get available images based on environment type
   const getAvailableImages = () => {
     if (environmentType === 'Container') {
@@ -297,6 +407,45 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({
       containerImages.forEach(image => {
         image.versions.forEach(version => {
           allImages.push(`${image.registry}/${image.name}:${version}`);
+=======
+  const { apolloErrorCatcher } = useContext(ErrorContext);
+  const {
+    data: dataFetchTemplates,
+    error: errorFetchTemplates,
+    loading: loadingFetchTemplates,
+    refetch: refetchTemplates,
+  } = useWorkspaceTemplatesQuery({
+    onError: apolloErrorCatcher,
+    variables: { workspaceNamespace },
+  });
+
+  const onSubmit = () => {
+    const shvolMounts: ShVolFormItemValue[] = form.getFieldValue('shvolss');
+    const sharedVolumeMountInfos: SharedVolumeMountsListItem[] =
+      shvolMounts.map(obj => ({
+        sharedVolume: {
+          namespace: obj.shvol.split('/')[0],
+          name: obj.shvol.split('/')[1],
+        },
+        mountPath: obj.mountpath,
+        readOnly: Boolean(obj.readonly),
+      }));
+
+    submitHandler({
+      ...formTemplate,
+      image:
+        images.find(i => getImageNoVer(i.name) === formTemplate.image)?.name ??
+        formTemplate.image,
+      sharedVolumeMountInfos: sharedVolumeMountInfos,
+    })
+      .then(() => {
+        setShow(false);
+        setFormTemplate(old => {
+          return { ...old, name: undefined };
+        });
+        form.setFieldsValue({
+          templatename: undefined,
+>>>>>>> master
         });
       });
 
@@ -307,6 +456,7 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({
     }
   };
 
+<<<<<<< HEAD
   const renderImageSelection = () => {
     if (environmentType === 'Container') {
       return (
@@ -318,6 +468,47 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({
             </Space>
           }
           style={{ marginBottom: 16 }}
+=======
+  return (
+    <Modal
+      destroyOnHidden={true}
+      styles={{ body: { paddingBottom: '5px' } }}
+      centered
+      footer={null}
+      title={template ? 'Modify template' : 'Create a new template'}
+      open={show}
+      onCancel={closehandler}
+      width="600px"
+    >
+      <Form
+        labelCol={{ span: 2 }}
+        wrapperCol={{ span: 22 }}
+        form={form}
+        onSubmitCapture={onSubmit}
+        initialValues={{
+          templatename: formTemplate.name,
+          image: formTemplate.image,
+          vmorcontainer: formTemplate.vmorcontainer,
+          cpu: formTemplate.cpu,
+          ram: formTemplate.ram,
+          disk: formTemplate.disk,
+        }}
+      >
+        <Form.Item
+          {...fullLayout}
+          name="templatename"
+          className="mt-1"
+          required
+          validateStatus={valid.name.status as 'success' | 'error'}
+          help={valid.name.help}
+          validateTrigger="onChange"
+          rules={[
+            {
+              required: true,
+              validator: nameValidator,
+            },
+          ]}
+>>>>>>> master
         >
           <Alert
             message="Container Image Options"
@@ -334,10 +525,37 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({
             <Select
               value={customImageUrl ? 'custom' : 'predefined'}
               onChange={value => {
+<<<<<<< HEAD
                 if (value === 'custom') {
                   form.setFieldsValue({ image: undefined });
                 } else {
                   setCustomImageUrl('');
+=======
+                setImagesSearchOptions(
+                  imagesNoVersion?.filter(s => s.includes(value)),
+                );
+                if (value !== formTemplate.image) {
+                  const imageFound = images.find(
+                    i => getImageNoVer(i.name) === value,
+                  );
+                  setFormTemplate(old => {
+                    return {
+                      ...old,
+                      image: String(value),
+                      registry: imageFound?.registry,
+                      vmorcontainer:
+                        imageFound?.vmorcontainer[0] ??
+                        EnvironmentType.Container,
+                      persistent: false,
+                      gui: true,
+                    };
+                  });
+                  form.setFieldsValue({
+                    image: value,
+                    vmorcontainer:
+                      imageFound?.vmorcontainer[0] ?? EnvironmentType.Container,
+                  });
+>>>>>>> master
                 }
               }}
             >
@@ -394,6 +612,7 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({
             💡 Examples: ubuntu:22.04, python:3.11,
             jupyter/datascience-notebook:latest
           </div>
+<<<<<<< HEAD
         </Card>
       );
     } else {
@@ -487,6 +706,57 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({
               placeholder={`npm install\nnpm start\n# or any other commands...`}
               rows={4}
               style={{ fontFamily: 'monospace' }}
+=======
+        </div>
+
+        <Form.Item labelAlign="left" className="mt-10" label="CPU" name="cpu">
+          <div className="sm:pl-3 pr-1">
+            <Slider
+              styles={{ handle: alternativeHandle }}
+              defaultValue={formTemplate.cpu}
+              tooltip={{ open: false }}
+              value={formTemplate.cpu}
+              onChange={(value: number) =>
+                setFormTemplate(old => {
+                  return { ...old, cpu: value };
+                })
+              }
+              min={cpuInterval.min}
+              max={cpuInterval.max}
+              marks={{
+                [cpuInterval.min]: `${cpuInterval.min}`,
+                [formTemplate.cpu]: `${formTemplate.cpu}`,
+                [cpuInterval.max]: `${cpuInterval.max}`,
+              }}
+              included={false}
+              step={1}
+              tipFormatter={(value?: number) => `${value} Core`}
+            />
+          </div>
+        </Form.Item>
+        <Form.Item labelAlign="left" label="RAM" name="ram">
+          <div className="sm:pl-3 pr-1">
+            <Slider
+              styles={{ handle: alternativeHandle }}
+              defaultValue={formTemplate.ram}
+              tooltip={{ open: false }}
+              value={formTemplate.ram}
+              onChange={(value: number) =>
+                setFormTemplate(old => {
+                  return { ...old, ram: value };
+                })
+              }
+              min={ramInterval.min}
+              max={ramInterval.max}
+              marks={{
+                [ramInterval.min]: `${ramInterval.min}GB`,
+                [formTemplate.ram]: `${formTemplate.ram}GB`,
+                [ramInterval.max]: `${ramInterval.max}GB`,
+              }}
+              included={false}
+              step={0.25}
+              tipFormatter={(value?: number) => `${value} GB`}
+>>>>>>> master
             />
           </Form.Item>
 
@@ -511,6 +781,7 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({
           }
           style={{ marginBottom: 16 }}
         >
+<<<<<<< HEAD
           <Alert
             message="VM Customization with Cloud-Init"
             description="Use cloud-init to automatically configure your VM on first boot. Install packages, create users, run commands, and more."
@@ -533,6 +804,25 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({
                 background: '#f8f8f8',
                 border: '1px solid #d9d9d9',
                 borderRadius: '6px',
+=======
+          <div className="sm:pl-3 pr-1 ">
+            <Slider
+              styles={{ handle: alternativeHandle }}
+              tooltip={{ open: false }}
+              value={formTemplate.disk}
+              defaultValue={formTemplate.disk}
+              onChange={(value: number) =>
+                setFormTemplate(old => {
+                  return { ...old, disk: value };
+                })
+              }
+              min={diskInterval.min}
+              max={diskInterval.max}
+              marks={{
+                [diskInterval.min]: `${diskInterval.min}GB`,
+                [formTemplate.disk]: `${formTemplate.disk}GB`,
+                [diskInterval.max]: `${diskInterval.max}GB`,
+>>>>>>> master
               }}
             />
             <div style={{ fontSize: '12px', color: '#666', marginTop: 4 }}>

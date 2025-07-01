@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import Keycloak from 'keycloak-js';
 import {
   createContext,
@@ -20,18 +21,27 @@ const DEV_MODE =
   process.env.NODE_ENV === 'development' &&
   (process.env.REACT_APP_CROWNLABS_DEV_MODE === 'true' ||
     REACT_APP_CROWNLABS_OIDC_PROVIDER_URL.includes('localhost'));
+=======
+import type { UserProfile } from 'oidc-client-ts';
+import { createContext } from 'react';
+>>>>>>> master
 
 interface IAuthContext {
   isLoggedIn: boolean;
   token?: string;
   userId?: string;
+  profile?: UserProfile;
+  logout: () => Promise<void>;
 }
 
 export const AuthContext = createContext<IAuthContext>({
   isLoggedIn: false,
   token: undefined,
   userId: undefined,
+  profile: undefined,
+  logout: async () => void 0,
 });
+<<<<<<< HEAD
 
 const kc = DEV_MODE
   ? null
@@ -108,3 +118,5 @@ const AuthContextProvider: FC<PropsWithChildren<{}>> = props => {
 };
 
 export default AuthContextProvider;
+=======
+>>>>>>> master

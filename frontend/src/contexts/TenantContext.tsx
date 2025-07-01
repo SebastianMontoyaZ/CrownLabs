@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import React, {
   createContext,
   useContext,
@@ -16,10 +17,33 @@ export interface ITenantContextProps {
   refreshClock: () => void;
   now: Date;
   hasSSHKeys: boolean;
+=======
+import type { ApolloError } from '@apollo/client';
+import type { TenantQuery } from '../generated-types';
+import { createContext } from 'react';
+import type { JointContent } from 'antd/lib/message/interface';
+
+export type Notifier = (
+  type: 'warning' | 'success',
+  key: string,
+  content: JointContent,
+) => void;
+
+interface ITenantContext {
+  data?: TenantQuery;
+  displayName: string;
+  loading?: boolean;
+  error?: ApolloError;
+  hasSSHKeys: boolean;
+  now: Date;
+  refreshClock: () => void;
+  notify: Notifier;
+>>>>>>> master
 }
 
 export const TenantContext = createContext<ITenantContextProps>({
   data: undefined,
+<<<<<<< HEAD
   loading: false,
   error: null,
   refreshClock: () => {},
@@ -160,3 +184,13 @@ export const TenantProvider: React.FC<ITenantProviderProps> = ({
 };
 
 export default TenantContext;
+=======
+  displayName: '',
+  loading: undefined,
+  error: undefined,
+  hasSSHKeys: false,
+  now: new Date(),
+  refreshClock: () => null,
+  notify: () => void 0,
+});
+>>>>>>> master

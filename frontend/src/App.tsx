@@ -18,7 +18,10 @@ function App() {
         tenantData?.tenant?.status?.personalNamespace?.name
       }
       TooltipButtonData={{
+<<<<<<< HEAD
         type: 'link',
+=======
+>>>>>>> master
         tooltipPlacement: 'left',
         tooltipTitle: 'Statistics',
         icon: (
@@ -27,6 +30,10 @@ function App() {
             className="flex items-center justify-center "
           />
         ),
+<<<<<<< HEAD
+=======
+        color: 'green',
+>>>>>>> master
       }}
       routes={[
         {

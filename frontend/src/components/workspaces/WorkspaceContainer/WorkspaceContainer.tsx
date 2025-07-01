@@ -21,7 +21,10 @@ import type {
   Template,
 } from '../ModalCreateTemplate/ModalCreateTemplate';
 import { TemplatesTableLogic } from '../Templates/TemplatesTableLogic';
+<<<<<<< HEAD
 import QuotaDisplay from '../QuotaDisplay/QuotaDisplay';
+=======
+>>>>>>> master
 
 export interface IWorkspaceContainerProps {
   tenantNamespace: string;
