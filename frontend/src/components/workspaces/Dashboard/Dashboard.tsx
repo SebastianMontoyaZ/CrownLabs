@@ -80,6 +80,7 @@ const Dashboard: FC<IDashboardProps> = ({ ...props }) => {
           <WorkspaceAdd />
         ) : (
           <WorkspaceWelcome />
+          
         )}
       </Col>
     </>
