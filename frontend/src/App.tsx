@@ -1,6 +1,13 @@
+import React, { useContext } from 'react';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from 'react-router-dom';
+import { ConfigProvider } from 'antd';
 import { BarChartOutlined, UserOutlined } from '@ant-design/icons';
-import { useContext } from 'react';
-import './App.css';
+import { useAuth } from 'react-oidc-context';
 import { TenantContext } from './contexts/TenantContext';
 import { LinkPosition } from './utils';
 import AppLayout from './components/common/AppLayout';
@@ -18,10 +25,6 @@ function App() {
         tenantData?.tenant?.status?.personalNamespace?.name
       }
       TooltipButtonData={{
-<<<<<<< HEAD
-        type: 'link',
-=======
->>>>>>> master
         tooltipPlacement: 'left',
         tooltipTitle: 'Statistics',
         icon: (
@@ -30,10 +33,7 @@ function App() {
             className="flex items-center justify-center "
           />
         ),
-<<<<<<< HEAD
-=======
         color: 'green',
->>>>>>> master
       }}
       routes={[
         {

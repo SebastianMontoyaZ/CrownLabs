@@ -48,7 +48,6 @@ const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
 
   const [dataInstances, setDataInstances] = useState<Instance[]>([]);
 
-<<<<<<< HEAD
   // Add debugging
   useEffect(() => {
     console.log('TemplatesTableLogic props:', {
@@ -60,51 +59,10 @@ const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
   }, [tenantNamespace, workspaceNamespace, workspaceName, role]);
 
   // Fetch templates for this workspace
-=======
   const notifier = useContext(TenantContext).notify;
-
->>>>>>> master
-  const {
-    data: dataTemplate,
-    loading: loadingTemplate,
-    error: errorTemplate,
-    refetch: refetchTemplate,
-  } = useWorkspaceTemplatesQuery({
-    variables: { workspaceNamespace },
-    onError: apolloErrorCatcher,
-<<<<<<< HEAD
-=======
-    onCompleted: data =>
-      setDataInstances(
-        data.instanceList?.instances
-          ?.map(i => makeGuiInstance(i, userId))
-          .sort((a, b) =>
-            (a.prettyName ?? '').localeCompare(b.prettyName ?? ''),
-          ) ?? [],
-      ),
->>>>>>> master
-    fetchPolicy: fetchPolicy_networkOnly,
-  });
 
   // Add debugging for templates
   useEffect(() => {
-<<<<<<< HEAD
-    console.log('Templates query result:', {
-      loading: loadingTemplate,
-      error: errorTemplate,
-      data: dataTemplate,
-      templates: dataTemplate?.templateList?.templates,
-    });
-  }, [dataTemplate, loadingTemplate, errorTemplate]);
-
-  // Fetch instances
-  const {
-    data: dataInstancesQuery,
-    loading: loadingInstances,
-    error: errorInstances,
-  } = useOwnedInstancesQuery({
-    variables: { tenantNamespace },
-=======
     if (!loadingInstances && !errorInstances && !errorsQueue.length) {
       const unsubscribe = subscribeToMoreInstances({
         onError: makeErrorCatcher(ErrorTypes.GenericError),
@@ -130,44 +88,11 @@ const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
     data: templateListData,
   } = useWorkspaceTemplatesQuery({
     variables: { workspaceNamespace },
->>>>>>> master
     onError: apolloErrorCatcher,
     fetchPolicy: fetchPolicy_networkOnly,
     nextFetchPolicy: 'cache-only',
   });
 
-<<<<<<< HEAD
-  // Add debugging for instances
-  useEffect(() => {
-    console.log('Instances query result:', {
-      loading: loadingInstances,
-      error: errorInstances,
-      data: dataInstancesQuery,
-      instances: dataInstancesQuery?.instanceList?.instances,
-    });
-  }, [dataInstancesQuery, loadingInstances, errorInstances]);
-
-  // Process instances data
-  useEffect(() => {
-    if (dataInstancesQuery?.instanceList?.instances) {
-      const processedInstances = dataInstancesQuery.instanceList.instances.map(
-        instance => {
-          // Add debugging for individual instances
-          console.log('Processing instance:', instance);
-
-          // Transform the GraphQL instance data to match the Instance interface
-          return {
-            name: instance.metadata?.name || '',
-            prettyName:
-              instance.spec?.prettyName || instance.metadata?.name || '',
-            // Add more fields as needed based on the Instance interface
-          };
-        }
-      );
-
-      console.log('Processed instances:', processedInstances);
-      setDataInstances(processedInstances);
-=======
   const dataTemplate = useMemo(
     () =>
       templateListData?.templateList?.templates
@@ -225,7 +150,6 @@ const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
           },
         });
       return unsubscribe;
->>>>>>> master
     }
   }, [dataInstancesQuery]);
 

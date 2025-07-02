@@ -22,10 +22,7 @@ import type {
   Template,
 } from '../ModalCreateTemplate/ModalCreateTemplate';
 import { TemplatesTableLogic } from '../Templates/TemplatesTableLogic';
-<<<<<<< HEAD
 import QuotaDisplay from '../QuotaDisplay/QuotaDisplay';
-=======
->>>>>>> master
 
 export interface IWorkspaceContainerProps {
   tenantNamespace: string;
@@ -136,16 +133,20 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
       },
     });
 
-  const handleAddTemplateYaml = async (yaml: string, isPersonal: boolean = false) => {
+  const handleAddTemplateYaml = async (
+    yaml: string,
+    isPersonal: boolean = false
+  ) => {
     if (isPersonal) {
-    await createTemplateFromYaml({
-      yaml,
-      workspaceNamespace: workspace.namespace+tenantId, // pass the correct namespace
-      
-    });}else{
       await createTemplateFromYaml({
         yaml,
-        workspaceNamespace: workspace.namespace}); // pass the correct
+        workspaceNamespace: workspace.namespace + tenantId, // pass the correct namespace
+      });
+    } else {
+      await createTemplateFromYaml({
+        yaml,
+        workspaceNamespace: workspace.namespace,
+      }); // pass the correct
     }
     setShowAddYamlModal(false);
   };
@@ -164,7 +165,7 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
         loading={loading}
       />
       <Box
-        header={{ 
+        header={{
           size: 'large',
           center: (
             <div className="h-full flex justify-center items-center px-5">

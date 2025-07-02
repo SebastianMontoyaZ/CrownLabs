@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import React, {
   createContext,
   useContext,
@@ -9,24 +8,14 @@ import React, {
 import { WorkspaceRole } from '../utils';
 import { useTenantQuery, TenantQuery, Role } from '../generated-types';
 import { ErrorContext } from '../errorHandling/ErrorContext';
-
-export interface ITenantContextProps {
-  data: TenantQuery | undefined;
-  loading: boolean;
-  error: any;
-  refreshClock: () => void;
-  now: Date;
-  hasSSHKeys: boolean;
-=======
 import type { ApolloError } from '@apollo/client';
 import type { TenantQuery } from '../generated-types';
-import { createContext } from 'react';
 import type { JointContent } from 'antd/lib/message/interface';
 
 export type Notifier = (
   type: 'warning' | 'success',
   key: string,
-  content: JointContent,
+  content: JointContent
 ) => void;
 
 interface ITenantContext {
@@ -38,12 +27,10 @@ interface ITenantContext {
   now: Date;
   refreshClock: () => void;
   notify: Notifier;
->>>>>>> master
 }
 
 export const TenantContext = createContext<ITenantContextProps>({
   data: undefined,
-<<<<<<< HEAD
   loading: false,
   error: null,
   refreshClock: () => {},
@@ -184,13 +171,3 @@ export const TenantProvider: React.FC<ITenantProviderProps> = ({
 };
 
 export default TenantContext;
-=======
-  displayName: '',
-  loading: undefined,
-  error: undefined,
-  hasSSHKeys: false,
-  now: new Date(),
-  refreshClock: () => null,
-  notify: () => void 0,
-});
->>>>>>> master

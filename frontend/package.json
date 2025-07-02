@@ -10,6 +10,7 @@
     "@apollo/client": "^3.13.8",
     "@tailwindcss/vite": "^4.1.5",
     "antd": "^5.25.0",
+    "graphql": "^16.11.0",
     "graphql-ws": "^5.16.0",
     "oidc-client-ts": "^3.2.1",
     "papaparse": "^5.5.3",
@@ -68,5 +69,6 @@
     "!(generated-types.tsx)*.{ts,tsx,js,jsx}": [
       "eslint --max-warnings=0 --ignore-pattern=!.storybook"
     ]
-  }
+  },
+  "packageManager": "yarn@4.9.2+sha512.1fc009bc09d13cfd0e19efa44cbfc2b9cf6ca61482725eb35bbc5e257e093ebf4130db6dfe15d604ff4b79efd8e1e8e99b25fa7d0a6197c9f9826358d4d65c3c"
 }

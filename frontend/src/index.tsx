@@ -13,30 +13,6 @@ import {
 } from './env';
 import { WebStorageStateStore } from 'oidc-client-ts';
 import ApolloClientSetup from './graphql-components/apolloClientSetup/ApolloClientSetup';
-<<<<<<< HEAD
-import { TenantProvider } from './contexts/TenantContext';
-import ErrorContextProvider from './errorHandling/ErrorContext';
-
-ReactDOM.render(
-  <React.StrictMode>
-    <ErrorContextProvider>
-      <AuthContextProvider>
-        <ApolloClientSetup>
-          <TenantProvider>
-            <App />
-          </TenantProvider>
-        </ApolloClientSetup>
-      </AuthContextProvider>
-    </ErrorContextProvider>
-  </React.StrictMode>,
-  document.getElementById('root')
-);
-
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-// reportWebVitals();
-=======
 import ThemeContextProvider from './contexts/ThemeContextProvider';
 
 const oidcConfig: AuthProviderProps = {
@@ -69,8 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
           </AuthProvider>
         </ErrorContextProvider>
       </ThemeContextProvider>
-    </React.StrictMode>,
+    </React.StrictMode>
   );
   document.getElementById('loader')?.remove();
 });
->>>>>>> master

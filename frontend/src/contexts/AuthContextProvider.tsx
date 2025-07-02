@@ -1,69 +1,33 @@
-import {
-  type FC,
-  type PropsWithChildren,
-  useCallback,
-  useContext,
-  useEffect,
-} from 'react';
-
-import { ErrorContext } from '../errorHandling/ErrorContext';
-import { ErrorTypes } from '../errorHandling/utils';
+import React, { type FC, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { AuthContext } from './AuthContext';
+import { AuthContext, type IAuthContext } from './AuthContext';
 
-const AuthContextProvider: FC<PropsWithChildren> = props => {
-  const { children } = props;
-  const {
-    isAuthenticated,
-    isLoading,
-    user,
-    signinRedirect,
-    removeUser,
-    signoutRedirect,
-    startSilentRenew,
-  } = useAuth();
+interface AuthContextProviderProps {
+  children: ReactNode;
+}
 
-  const { makeErrorCatcher, setExecLogin, execLogin } =
-    useContext(ErrorContext);
+const AuthContextProvider: FC<AuthContextProviderProps> = ({ children }) => {
+  const auth = useAuth();
 
-  const loginErrorCatcher = makeErrorCatcher(ErrorTypes.AuthError);
+  const authContextValue: IAuthContext = {
+    user: auth.user,
+    isAuthenticated: auth.isAuthenticated,
+    isLoading: auth.isLoading,
+    login: () => auth.signinRedirect(),
+    logout: () => auth.signoutRedirect(),
+    refreshToken: async () => {
+      try {
+        await auth.signinSilent();
+      } catch (error) {
+        console.error('Failed to refresh token:', error);
+        // If silent refresh fails, redirect to login
+        auth.signinRedirect();
+      }
+    },
+  };
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      startSilentRenew();
-    }
-  }, [startSilentRenew, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isLoading && (!isAuthenticated || execLogin)) {
-      signinRedirect().catch(loginErrorCatcher);
-      setExecLogin(false);
-    }
-  }, [
-    execLogin,
-    setExecLogin,
-    isLoading,
-    isAuthenticated,
-    signinRedirect,
-    loginErrorCatcher,
-  ]);
-
-  const logout = useCallback(() => {
-    return removeUser()
-      .then(() => signoutRedirect())
-      .catch(loginErrorCatcher);
-  }, [removeUser, signoutRedirect, loginErrorCatcher]);
-
-  return isLoading ? null : (
-    <AuthContext.Provider
-      value={{
-        isLoggedIn: isAuthenticated,
-        token: user?.id_token,
-        userId: user?.profile.preferred_username || '',
-        profile: user?.profile,
-        logout,
-      }}
-    >
+  return (
+    <AuthContext.Provider value={authContextValue}>
       {children}
     </AuthContext.Provider>
   );
