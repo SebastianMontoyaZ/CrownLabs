@@ -25,7 +25,7 @@ export interface ITemplatesTableProps {
   role: WorkspaceRole;
   editTemplate: (id: string) => void;
   deleteTemplate: (
-    id: string,
+    id: string
   ) => Promise<
     FetchResult<
       DeleteTemplateMutation,
@@ -36,7 +36,7 @@ export interface ITemplatesTableProps {
   deleteTemplateLoading: boolean;
   createInstance: (
     id: string,
-    labelSelector?: JSON,
+    labelSelector?: JSON
   ) => Promise<
     FetchResult<
       CreateInstanceMutation,

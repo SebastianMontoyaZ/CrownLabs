@@ -48,20 +48,26 @@ const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
 
   const [dataInstances, setDataInstances] = useState<Instance[]>([]);
 
-  // Add debugging
-  useEffect(() => {
-    console.log('TemplatesTableLogic props:', {
-      tenantNamespace,
-      workspaceNamespace,
-      workspaceName,
-      role,
-    });
-  }, [tenantNamespace, workspaceNamespace, workspaceName, role]);
-
-  // Fetch templates for this workspace
   const notifier = useContext(TenantContext).notify;
 
-  // Add debugging for templates
+  const {
+    loading: loadingInstances,
+    error: errorInstances,
+    subscribeToMore: subscribeToMoreInstances,
+  } = useOwnedInstancesQuery({
+    variables: { tenantNamespace },
+    onError: apolloErrorCatcher,
+    onCompleted: data =>
+      setDataInstances(
+        data.instanceList?.instances
+          ?.map(i => makeGuiInstance(i, userId))
+          .sort((a, b) =>
+            (a.prettyName ?? '').localeCompare(b.prettyName ?? ''),
+          ) ?? [],
+      ),
+    fetchPolicy: fetchPolicy_networkOnly,
+  });
+
   useEffect(() => {
     if (!loadingInstances && !errorInstances && !errorsQueue.length) {
       const unsubscribe = subscribeToMoreInstances({
@@ -151,7 +157,16 @@ const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
         });
       return unsubscribe;
     }
-  }, [dataInstancesQuery]);
+  }, [
+    errorTemplate,
+    errorsQueue.length,
+    loadingTemplate,
+    subscribeToMoreTemplates,
+    userId,
+    workspaceNamespace,
+    apolloErrorCatcher,
+    makeErrorCatcher,
+  ]);
 
   const [createInstanceMutation] = useCreateInstanceMutation({
     onError: apolloErrorCatcher,

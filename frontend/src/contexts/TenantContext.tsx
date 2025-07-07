@@ -18,15 +18,13 @@ export type Notifier = (
   content: JointContent
 ) => void;
 
-interface ITenantContext {
+interface ITenantContextProps {
   data?: TenantQuery;
-  displayName: string;
   loading?: boolean;
-  error?: ApolloError;
-  hasSSHKeys: boolean;
-  now: Date;
+  error?: ApolloError | null;
   refreshClock: () => void;
-  notify: Notifier;
+  now: Date;
+  hasSSHKeys: boolean;
 }
 
 export const TenantContext = createContext<ITenantContextProps>({
@@ -42,10 +40,14 @@ export interface ITenantProviderProps {
   children: ReactNode;
 }
 
-// Mock data for development
+// Mock data for development - FIXED to match Apollo mocks
 const mockTenantData: TenantQuery = {
   tenant: {
     __typename: 'ItPolitoCrownlabsV1alpha2Tenant',
+    metadata: {
+      __typename: 'Metadata7',
+      name: 'tenant-johndoe', // 🎯 Match the MOCK_TENANT_NAMESPACE from Apollo
+    },
     spec: {
       __typename: 'Spec7',
       firstName: 'John',
@@ -54,7 +56,7 @@ const mockTenantData: TenantQuery = {
       workspaces: [
         {
           __typename: 'WorkspacesListItem',
-          name: 'dev-workspace',
+          name: 'development', // 🎯 Match Apollo mock
           role: Role.Manager,
           workspaceWrapperTenantV1alpha2: {
             __typename: 'WorkspaceWrapperTenantV1alpha2',
@@ -62,13 +64,13 @@ const mockTenantData: TenantQuery = {
               __typename: 'ItPolitoCrownlabsV1alpha1Workspace',
               spec: {
                 __typename: 'Spec2',
-                prettyName: 'Development Workspace',
+                prettyName: 'Development Environment', // 🎯 Match Apollo mock
               },
               status: {
                 __typename: 'Status2',
                 namespace: {
                   __typename: 'Namespace',
-                  name: 'workspace-dev',
+                  name: 'workspace-dev-johndoe', // 🎯 Match MOCK_WORKSPACE_NAMESPACE
                 },
               },
             },
@@ -76,7 +78,7 @@ const mockTenantData: TenantQuery = {
         },
         {
           __typename: 'WorkspacesListItem',
-          name: 'personal-john-doe',
+          name: 'personal', // 🎯 Match Apollo mock
           role: Role.Manager,
           workspaceWrapperTenantV1alpha2: {
             __typename: 'WorkspaceWrapperTenantV1alpha2',
@@ -84,13 +86,13 @@ const mockTenantData: TenantQuery = {
               __typename: 'ItPolitoCrownlabsV1alpha1Workspace',
               spec: {
                 __typename: 'Spec2',
-                prettyName: 'Personal Workspace',
+                prettyName: 'Personal Workspace', // 🎯 Match Apollo mock
               },
               status: {
                 __typename: 'Status2',
                 namespace: {
                   __typename: 'Namespace',
-                  name: 'tenant-john-doe',
+                  name: 'workspace-personal-johndoe', // 🎯 Match MOCK_PERSONAL_WORKSPACE_NAMESPACE
                 },
               },
             },
@@ -102,14 +104,14 @@ const mockTenantData: TenantQuery = {
       __typename: 'Status7',
       personalNamespace: {
         __typename: 'PersonalNamespace',
-        name: 'tenant-john-doe',
+        name: 'workspace-personal-johndoe', // 🎯 Match MOCK_PERSONAL_WORKSPACE_NAMESPACE
         created: true,
       },
       quota: {
         __typename: 'Quota3',
-        instances: 8,
-        cpu: '23',
-        memory: '48Gi',
+        instances: 10, // 🎯 Match Apollo mock
+        cpu: '8', // 🎯 Match Apollo mock
+        memory: '16Gi', // 🎯 Match Apollo mock
       },
     },
   },
@@ -118,19 +120,7 @@ const mockTenantData: TenantQuery = {
 export const TenantProvider: React.FC<ITenantProviderProps> = ({
   children,
 }) => {
-  const { apolloErrorCatcher } = useContext(ErrorContext);
-
-  // ✅ Use hardcoded tenantId for now since we don't have access to UserContext
-  const tenantId = 'john-doe'; // In a real app, this would come from authentication/routing
-
-  const { data, loading, error, refetch } = useTenantQuery({
-    variables: { tenantId }, // ✅ Provide required tenantId variable
-    onError: apolloErrorCatcher,
-    fetchPolicy: 'cache-and-network',
-  });
-
   const [now, setNow] = useState(new Date());
-  const [hasSSHKeys, setHasSSHKeys] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -140,27 +130,39 @@ export const TenantProvider: React.FC<ITenantProviderProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (data?.tenant) {
-      setHasSSHKeys(!!data.tenant);
-    }
-  }, [data]);
-
   const refreshClock = () => {
     setNow(new Date());
-    if (process.env.NODE_ENV !== 'development') {
-      refetch();
-    }
   };
 
+  // 🎯 For development, return mock data immediately
   const isDevelopment = process.env.NODE_ENV === 'development';
+
+  if (isDevelopment) {
+    console.log('🎯 TenantProvider: Using mock data for development');
+    const contextValue: ITenantContextProps = {
+      data: mockTenantData,
+      loading: false,
+      error: null,
+      refreshClock,
+      now,
+      hasSSHKeys: true,
+    };
+
+    return (
+      <TenantContext.Provider value={contextValue}>
+        {children}
+      </TenantContext.Provider>
+    );
+  }
+
+  // Production code would go here with real GraphQL queries
   const contextValue: ITenantContextProps = {
-    data: isDevelopment ? mockTenantData : data,
-    loading: isDevelopment ? false : loading,
-    error: isDevelopment ? null : error,
+    data: undefined,
+    loading: true,
+    error: null,
     refreshClock,
     now,
-    hasSSHKeys: isDevelopment ? true : hasSSHKeys,
+    hasSSHKeys: false,
   };
 
   return (

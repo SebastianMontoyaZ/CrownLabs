@@ -26,6 +26,8 @@ import {
   ImagesDocument,
   WorkspacesDocument,
   WorkspaceSharedVolumesDocument,
+  UpdatedWorkspaceTemplatesDocument,
+  UpdatedOwnedInstancesDocument,
   Role,
   EnvironmentType,
 } from '../../generated-types';
@@ -130,6 +132,227 @@ const mockWorkspaces = [
   },
 ];
 
+const mockInstances = [
+  {
+    __typename: 'Instance',
+    metadata: {
+      __typename: 'ObjectMeta',
+      name: 'ubuntu-dev-instance-1',
+      namespace: MOCK_TENANT_NAMESPACE,
+      creationTimestamp: '2024-01-01T10:00:00Z',
+      labels: {
+        'crownlabs.polito.it/template': 'ubuntu-dev-template',
+        'crownlabs.polito.it/workspace': 'development',
+      },
+    },
+    spec: {
+      __typename: 'InstanceSpec',
+      prettyName: 'My Ubuntu Dev Environment',
+      running: true,
+      templateRef: {
+        __typename: 'GenericRef',
+        name: 'ubuntu-dev-template',
+        namespace: MOCK_WORKSPACE_NAMESPACE,
+      },
+      tenantRef: {
+        __typename: 'GenericRef',
+        name: MOCK_TENANT_NAMESPACE,
+        namespace: MOCK_TENANT_NAMESPACE,
+      },
+    },
+    status: {
+      __typename: 'InstanceStatus',
+      phase: 'Ready',
+      url: 'https://ubuntu-dev-instance-1.crownlabs.polito.it',
+      ip: '10.1.1.100',
+    },
+    // Add required fields for Instance display
+    id: 'ubuntu-dev-instance-1',
+    name: 'My Ubuntu Dev Environment',
+    templateId: 'ubuntu-dev-template',
+    persistent: false,
+    guiEnabled: true,
+    running: true,
+  },
+  {
+    __typename: 'Instance',
+    metadata: {
+      __typename: 'ObjectMeta',
+      name: 'jupyter-instance-1',
+      namespace: MOCK_TENANT_NAMESPACE,
+      creationTimestamp: '2024-01-01T11:00:00Z',
+      labels: {
+        'crownlabs.polito.it/template': 'python-jupyter-template',
+        'crownlabs.polito.it/workspace': 'development',
+      },
+    },
+    spec: {
+      __typename: 'InstanceSpec',
+      prettyName: 'My Jupyter Notebook',
+      running: true,
+      templateRef: {
+        __typename: 'GenericRef',
+        name: 'python-jupyter-template',
+        namespace: MOCK_WORKSPACE_NAMESPACE,
+      },
+      tenantRef: {
+        __typename: 'GenericRef',
+        name: MOCK_TENANT_NAMESPACE,
+        namespace: MOCK_TENANT_NAMESPACE,
+      },
+    },
+    status: {
+      __typename: 'InstanceStatus',
+      phase: 'Ready',
+      url: 'https://jupyter-instance-1.crownlabs.polito.it',
+      ip: '10.1.1.101',
+    },
+    // Add required fields for Instance display
+    id: 'jupyter-instance-1',
+    name: 'My Jupyter Notebook',
+    templateId: 'python-jupyter-template',
+    persistent: true,
+    guiEnabled: true,
+    running: true,
+  },
+  {
+    __typename: 'Instance',
+    metadata: {
+      __typename: 'ObjectMeta',
+      name: 'personal-vscode-instance-1',
+      namespace: MOCK_TENANT_NAMESPACE,
+      creationTimestamp: '2024-01-02T10:00:00Z',
+      labels: {
+        'crownlabs.polito.it/template': 'personal-vscode-template',
+        'crownlabs.polito.it/workspace': 'personal',
+      },
+    },
+    spec: {
+      __typename: 'InstanceSpec',
+      prettyName: 'My Personal VS Code',
+      running: true,
+      templateRef: {
+        __typename: 'GenericRef',
+        name: 'personal-vscode-template',
+        namespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE,
+      },
+      tenantRef: {
+        __typename: 'GenericRef',
+        name: MOCK_TENANT_NAMESPACE,
+        namespace: MOCK_TENANT_NAMESPACE,
+      },
+    },
+    status: {
+      __typename: 'InstanceStatus',
+      phase: 'Ready',
+      url: 'https://personal-vscode-instance-1.crownlabs.polito.it',
+      ip: '10.1.1.102',
+    },
+    // Add required fields for Instance display
+    id: 'personal-vscode-instance-1',
+    name: 'My Personal VS Code',
+    templateId: 'personal-vscode-template',
+    persistent: true,
+    guiEnabled: true,
+    running: true,
+  },
+];
+
+// Update the personal templates to include instances directly in the mock data
+const mockPersonalTemplates = [
+  {
+    __typename: 'Template',
+    metadata: {
+      __typename: 'ObjectMeta',
+      name: 'personal-vscode-template',
+      namespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE,
+      creationTimestamp: '2024-01-02T00:00:00Z',
+      labels: {
+        'crownlabs.polito.it/workspace': 'personal',
+      },
+    },
+    spec: {
+      __typename: 'TemplateSpec',
+      prettyName: 'Personal VS Code Environment',
+      description: 'My personal development environment with VS Code',
+      environmentList: [
+        {
+          __typename: 'Environment',
+          environmentType: 'Container',
+          guiEnabled: true,
+          persistent: true,
+          nodeSelector: {},
+          resources: {
+            __typename: 'EnvironmentResources',
+            cpu: 2,
+            memory: '4Gi',
+            disk: '15Gi',
+            reservedCPUPercentage: 50,
+          },
+          image: 'codercom/code-server:latest',
+          mountMyDriveVolume: true,
+        },
+      ],
+      workspaceRef: {
+        __typename: 'GenericRef',
+        name: 'personal',
+        namespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE,
+      },
+      workspaceCrownlabsPolitoItWorkspaceRef: {
+        __typename: 'GenericRef',
+        name: 'personal',
+        namespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE,
+      },
+    },
+  },
+  {
+    __typename: 'Template',
+    metadata: {
+      __typename: 'ObjectMeta',
+      name: 'personal-python-template',
+      namespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE,
+      creationTimestamp: '2024-01-02T01:00:00Z',
+      labels: {
+        'crownlabs.polito.it/workspace': 'personal',
+      },
+    },
+    spec: {
+      __typename: 'TemplateSpec',
+      prettyName: 'Personal Python Workspace',
+      description: 'My personal Python development environment',
+      environmentList: [
+        {
+          __typename: 'Environment',
+          environmentType: 'Container',
+          guiEnabled: false,
+          persistent: true,
+          nodeSelector: {},
+          resources: {
+            __typename: 'EnvironmentResources',
+            cpu: 1,
+            memory: '2Gi',
+            disk: '10Gi',
+            reservedCPUPercentage: 50,
+          },
+          image: 'python:3.11',
+          mountMyDriveVolume: true,
+        },
+      ],
+      workspaceRef: {
+        __typename: 'GenericRef',
+        name: 'personal',
+        namespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE,
+      },
+      workspaceCrownlabsPolitoItWorkspaceRef: {
+        __typename: 'GenericRef',
+        name: 'personal',
+        namespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE,
+      },
+    },
+  },
+];
+
+// Update the mockTemplates to include instances directly
 const mockTemplates = [
   {
     __typename: 'Template',
@@ -146,22 +369,33 @@ const mockTemplates = [
       __typename: 'TemplateSpec',
       prettyName: 'Ubuntu Development Environment',
       description: 'Ubuntu 22.04 with development tools',
-      environmentList: ['Container'],
+      environmentList: [
+        {
+          __typename: 'Environment',
+          environmentType: 'Container',
+          guiEnabled: true,
+          persistent: false,
+          nodeSelector: {},
+          resources: {
+            __typename: 'EnvironmentResources',
+            cpu: 2,
+            memory: '4Gi',
+            disk: '10Gi',
+            reservedCPUPercentage: 50,
+          },
+          image: 'ubuntu:22.04',
+          mountMyDriveVolume: true,
+        },
+      ],
       workspaceRef: {
         __typename: 'GenericRef',
         name: 'development',
         namespace: MOCK_WORKSPACE_NAMESPACE,
       },
-      image: 'ubuntu:22.04',
-      guiEnabled: true,
-      persistent: false,
-      mountMyDriveVolume: true,
-      resources: {
-        __typename: 'EnvironmentResources',
-        cpu: 2,
-        memory: '4Gi',
-        disk: '10Gi',
-        reservedCPUPercentage: 50,
+      workspaceCrownlabsPolitoItWorkspaceRef: {
+        __typename: 'GenericRef',
+        name: 'development',
+        namespace: MOCK_WORKSPACE_NAMESPACE,
       },
     },
   },
@@ -180,92 +414,34 @@ const mockTemplates = [
       __typename: 'TemplateSpec',
       prettyName: 'Python Jupyter Notebook',
       description: 'Jupyter notebook with Python data science stack',
-      environmentList: ['Container'],
+      environmentList: [
+        {
+          __typename: 'Environment',
+          environmentType: 'Container',
+          guiEnabled: true,
+          persistent: true,
+          nodeSelector: {},
+          resources: {
+            __typename: 'EnvironmentResources',
+            cpu: 4,
+            memory: '8Gi',
+            disk: '20Gi',
+            reservedCPUPercentage: 50,
+          },
+          image: 'jupyter/datascience-notebook:latest',
+          mountMyDriveVolume: true,
+        },
+      ],
       workspaceRef: {
         __typename: 'GenericRef',
         name: 'development',
         namespace: MOCK_WORKSPACE_NAMESPACE,
       },
-      image: 'jupyter/datascience-notebook:latest',
-      guiEnabled: true,
-      persistent: true,
-      mountMyDriveVolume: true,
-      resources: {
-        __typename: 'EnvironmentResources',
-        cpu: 4,
-        memory: '8Gi',
-        disk: '20Gi',
-        reservedCPUPercentage: 50,
-      },
-    },
-  },
-];
-
-const mockInstances = [
-  {
-    __typename: 'Instance',
-    metadata: {
-      __typename: 'ObjectMeta',
-      name: 'ubuntu-dev-instance-1',
-      namespace: MOCK_TENANT_NAMESPACE,
-      creationTimestamp: '2024-01-01T10:00:00Z',
-      labels: {
-        'crownlabs.polito.it/template': 'ubuntu-dev-template',
-        'crownlabs.polito.it/workspace': 'development',
-      },
-    },
-    spec: {
-      __typename: 'InstanceSpec',
-      prettyName: 'My Ubuntu Dev Environment',
-      templateRef: {
+      workspaceCrownlabsPolitoItWorkspaceRef: {
         __typename: 'GenericRef',
-        name: 'ubuntu-dev-template',
+        name: 'development',
         namespace: MOCK_WORKSPACE_NAMESPACE,
       },
-      tenantRef: {
-        __typename: 'GenericRef',
-        name: MOCK_TENANT_NAMESPACE,
-        namespace: MOCK_TENANT_NAMESPACE,
-      },
-    },
-    status: {
-      __typename: 'InstanceStatus',
-      phase: 'Ready',
-      url: 'https://ubuntu-dev-instance-1.crownlabs.polito.it',
-      ip: '10.1.1.100',
-    },
-  },
-  {
-    __typename: 'Instance',
-    metadata: {
-      __typename: 'ObjectMeta',
-      name: 'jupyter-instance-1',
-      namespace: MOCK_TENANT_NAMESPACE,
-      creationTimestamp: '2024-01-01T11:00:00Z',
-      labels: {
-        'crownlabs.polito.it/template': 'python-jupyter-template',
-        'crownlabs.polito.it/workspace': 'development',
-      },
-    },
-    spec: {
-      __typename: 'InstanceSpec',
-      prettyName: 'My Jupyter Notebook',
-      templateRef: {
-        __typename: 'GenericRef',
-        name: 'python-jupyter-template',
-        namespace: MOCK_WORKSPACE_NAMESPACE,
-      },
-      tenantRef: {
-        __typename: 'GenericRef',
-        name: MOCK_TENANT_NAMESPACE,
-        namespace: MOCK_TENANT_NAMESPACE,
-      },
-    },
-    status: {
-      __typename: 'InstanceStatus',
-      phase: 'Ready',
-      url: 'https://jupyter-instance-1.crownlabs.polito.it',
-      ip: '10.1.1.101',
     },
   },
 ];
@@ -348,7 +524,7 @@ const mocks = [
     },
   },
 
-  // Personal workspace templates query (empty for now)
+  // Personal workspace templates query (now with templates)
   {
     request: {
       query: WorkspaceTemplatesDocument,
@@ -358,7 +534,7 @@ const mocks = [
       data: {
         templateList: {
           __typename: 'TemplateList',
-          templates: [],
+          templates: mockPersonalTemplates,
         },
       },
     },
@@ -374,7 +550,192 @@ const mocks = [
       data: {
         instanceList: {
           __typename: 'InstanceList',
-          instances: mockInstances,
+          instances: [
+            // Add instances that should appear in personal workspace
+            {
+              __typename: 'Instance',
+              metadata: {
+                __typename: 'ObjectMeta',
+                name: 'personal-vscode-instance-1',
+                namespace: MOCK_TENANT_NAMESPACE,
+                creationTimestamp: '2024-01-02T10:00:00Z',
+                labels: {
+                  'crownlabs.polito.it/template': 'personal-vscode-template',
+                  'crownlabs.polito.it/workspace': 'personal',
+                },
+              },
+              spec: {
+                __typename: 'InstanceSpec',
+                running: true,
+                prettyName: 'My Personal VS Code',
+                templateCrownlabsPolitoItTemplateRef: {
+                  __typename: 'TemplateCrownlabsPolitoItTemplateRef',
+                  name: 'personal-vscode-template',
+                  namespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE,
+                  templateWrapper: {
+                    __typename: 'TemplateWrapper',
+                    itPolitoCrownlabsV1alpha2Template: {
+                      __typename: 'ItPolitoCrownlabsV1alpha2Template',
+                      spec: {
+                        __typename: 'Spec6',
+                        prettyName: 'Personal VS Code Environment',
+                        description: 'My personal development environment with VS Code',
+                        environmentList: [
+                          {
+                            __typename: 'EnvironmentListListItem',
+                            guiEnabled: true,
+                            persistent: true,
+                            environmentType: 'Container',
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+              status: {
+                __typename: 'Status3',
+                phase: 'Ready',
+                url: 'https://personal-vscode-instance-1.crownlabs.polito.it',
+                ip: '10.1.1.102',
+                nodeName: 'worker-node-1',
+                nodeSelector: {},
+              },
+            },
+            {
+              __typename: 'Instance',
+              metadata: {
+                __typename: 'ObjectMeta',
+                name: 'personal-python-instance-1',
+                namespace: MOCK_TENANT_NAMESPACE,
+                creationTimestamp: '2024-01-02T14:00:00Z',
+                labels: {
+                  'crownlabs.polito.it/template': 'personal-python-template',
+                  'crownlabs.polito.it/workspace': 'personal',
+                },
+              },
+              spec: {
+                __typename: 'InstanceSpec',
+                running: false,
+                prettyName: 'My Python Terminal',
+                templateCrownlabsPolitoItTemplateRef: {
+                  __typename: 'TemplateCrownlabsPolitoItTemplateRef',
+                  name: 'personal-python-template',
+                  namespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE,
+                  templateWrapper: {
+                    __typename: 'TemplateWrapper',
+                    itPolitoCrownlabsV1alpha2Template: {
+                      __typename: 'ItPolitoCrownlabsV1alpha2Template',
+                      spec: {
+                        __typename: 'Spec6',
+                        prettyName: 'Personal Python Workspace',
+                        description: 'My personal Python development environment',
+                        environmentList: [
+                          {
+                            __typename: 'EnvironmentListListItem',
+                            guiEnabled: false,
+                            persistent: true,
+                            environmentType: 'Container',
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+              status: {
+                __typename: 'Status3',
+                phase: 'Stopped',
+                url: null,
+                ip: null,
+                nodeName: null,
+                nodeSelector: {},
+              },
+            },
+            // Also include the existing development workspace instances
+            {
+              __typename: 'Instance',
+              metadata: {
+                __typename: 'ObjectMeta',
+                name: 'ubuntu-dev-instance-1',
+                namespace: MOCK_TENANT_NAMESPACE,
+                creationTimestamp: '2024-01-01T10:00:00Z',
+                labels: {
+                  'crownlabs.polito.it/template': 'ubuntu-dev-template',
+                  'crownlabs.polito.it/workspace': 'development',
+                },
+              },
+              spec: {
+                __typename: 'InstanceSpec',
+                running: true,
+                prettyName: 'My Ubuntu Dev Environment',
+                templateCrownlabsPolitoItTemplateRef: {
+                  __typename: 'TemplateCrownlabsPolitoItTemplateRef',
+                  name: 'ubuntu-dev-template',
+                  namespace: MOCK_WORKSPACE_NAMESPACE,
+                  templateWrapper: {
+                    __typename: 'TemplateWrapper',
+                    itPolitoCrownlabsV1alpha2Template: {
+                      __typename: 'ItPolitoCrownlabsV1alpha2Template',
+                      spec: {
+                        __typename: 'Spec6',
+                        prettyName: 'Ubuntu Development Environment',
+                        description: 'Ubuntu 22.04 with development tools',
+                        environmentList: [
+                          {
+                            __typename: 'EnvironmentListListItem',
+                            guiEnabled: true,
+                            persistent: false,
+                            environmentType: 'Container',
+                          },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+              status: {
+                __typename: 'Status3',
+                phase: 'Ready',
+                url: 'https://ubuntu-dev-instance-1.crownlabs.polito.it',
+                ip: '10.1.1.100',
+                nodeName: 'worker-node-1',
+                nodeSelector: {},
+              },
+            },
+          ],
+        },
+      },
+    },
+  },
+
+  // Add additional mock for when workspace namespace is incorrectly used as tenant namespace
+  {
+    request: {
+      query: OwnedInstancesDocument,
+      variables: { tenantNamespace: MOCK_WORKSPACE_NAMESPACE },
+    },
+    result: {
+      data: {
+        instanceList: {
+          __typename: 'InstanceList',
+          instances: [], // Empty since instances are stored in tenant namespace, not workspace
+        },
+      },
+    },
+  },
+
+  // Add mock for personal workspace namespace being used as tenant namespace
+  {
+    request: {
+      query: OwnedInstancesDocument,
+      variables: { tenantNamespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE },
+    },
+    result: {
+      data: {
+        instanceList: {
+          __typename: 'InstanceList',
+          instances: [], // Empty since instances are stored in tenant namespace, not workspace
         },
       },
     },
@@ -404,9 +765,255 @@ const mocks = [
     },
     result: {
       data: {
-        sharedVolumeList: {
+        sharedvolumeList: {
           __typename: 'SharedVolumeList',
-          sharedVolumes: [],
+          sharedvolumes: [],
+        },
+      },
+    },
+  },
+
+  // Shared volumes query for personal workspace
+  {
+    request: {
+      query: WorkspaceSharedVolumesDocument,
+      variables: { workspaceNamespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE },
+    },
+    result: {
+      data: {
+        sharedvolumeList: {
+          __typename: 'SharedVolumeList',
+          sharedvolumes: [],
+        },
+      },
+    },
+  },
+
+  // Updated workspace templates subscription - for development workspace
+  {
+    request: {
+      query: UpdatedWorkspaceTemplatesDocument,
+      variables: { workspaceNamespace: MOCK_WORKSPACE_NAMESPACE },
+    },
+    result: {
+      data: {
+        updatedTemplate: null, // No initial update
+      },
+    },
+  },
+
+  // Updated workspace templates subscription - for development workspace with templateId
+  {
+    request: {
+      query: UpdatedWorkspaceTemplatesDocument,
+      variables: {
+        workspaceNamespace: MOCK_WORKSPACE_NAMESPACE,
+        templateId: undefined,
+      },
+    },
+    result: {
+      data: {
+        updatedTemplate: null, // No initial update
+      },
+    },
+  },
+
+  // Updated workspace templates subscription - for personal workspace
+  {
+    request: {
+      query: UpdatedWorkspaceTemplatesDocument,
+      variables: { workspaceNamespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE },
+    },
+    result: {
+      data: {
+        updatedTemplate: null, // No initial update
+      },
+    },
+  },
+
+  // Updated workspace templates subscription - for personal workspace with templateId
+  {
+    request: {
+      query: UpdatedWorkspaceTemplatesDocument,
+      variables: {
+        workspaceNamespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE,
+        templateId: undefined,
+      },
+    },
+    result: {
+      data: {
+        updatedTemplate: null, // No initial update
+      },
+    },
+  },
+
+  // Updated owned instances subscription
+  {
+    request: {
+      query: UpdatedOwnedInstancesDocument,
+      variables: { tenantNamespace: MOCK_TENANT_NAMESPACE },
+    },
+    result: {
+      data: {
+        updatedInstance: null, // No initial update
+      },
+    },
+  },
+
+  // Add mock for when personal workspace namespace is incorrectly used for instances subscription
+  {
+    request: {
+      query: UpdatedOwnedInstancesDocument,
+      variables: { tenantNamespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE },
+    },
+    result: {
+      data: {
+        updatedInstance: null, // No initial update
+      },
+    },
+  },
+
+  // Add mock for when development workspace namespace is incorrectly used for instances subscription
+  {
+    request: {
+      query: UpdatedOwnedInstancesDocument,
+      variables: { tenantNamespace: MOCK_WORKSPACE_NAMESPACE },
+    },
+    result: {
+      data: {
+        updatedInstance: null, // No initial update
+      },
+    },
+  },
+
+  // Add mocks for instances subscription with instanceId parameter
+  {
+    request: {
+      query: UpdatedOwnedInstancesDocument,
+      variables: { 
+        tenantNamespace: MOCK_TENANT_NAMESPACE,
+        instanceId: undefined 
+      },
+    },
+    result: {
+      data: {
+        updatedInstance: null,
+      },
+    },
+  },
+
+  {
+    request: {
+      query: UpdatedOwnedInstancesDocument,
+      variables: { 
+        tenantNamespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE,
+        instanceId: undefined 
+      },
+    },
+    result: {
+      data: {
+        updatedInstance: null,
+      },
+    },
+  },
+
+  {
+    request: {
+      query: UpdatedOwnedInstancesDocument,
+      variables: { 
+        tenantNamespace: MOCK_WORKSPACE_NAMESPACE,
+        instanceId: undefined 
+      },
+    },
+    result: {
+      data: {
+        updatedInstance: null,
+      },
+    },
+  },
+
+  // Workspaces mock for auto-enroll
+  {
+    request: {
+      query: WorkspacesDocument,
+      variables: {
+        labels: 'crownlabs.polito.it/autoenroll=withApproval',
+      },
+    },
+    result: {
+      data: {
+        workspaces: {
+          __typename: 'ItPolitoCrownlabsV1alpha1WorkspaceList',
+          items: [
+            {
+              __typename: 'ItPolitoCrownlabsV1alpha1Workspace',
+              metadata: {
+                __typename: 'Metadata2',
+                name: 'candidate-workspace-1',
+              },
+              spec: {
+                __typename: 'Spec2',
+                prettyName: 'Machine Learning Course',
+                autoEnroll: true,
+              },
+            },
+            {
+              __typename: 'ItPolitoCrownlabsV1alpha1Workspace',
+              metadata: {
+                __typename: 'Metadata2',
+                name: 'candidate-workspace-2',
+              },
+              spec: {
+                __typename: 'Spec2',
+                prettyName: 'Computer Networks Lab',
+                autoEnroll: true,
+              },
+            },
+          ],
+        },
+      },
+    },
+  },
+
+  // Additional mock for any workspace namespace variations
+  {
+    request: {
+      query: WorkspaceTemplatesDocument,
+      variables: { workspaceNamespace: 'development' }, // If passing workspace name instead of namespace
+    },
+    result: {
+      data: {
+        templateList: {
+          __typename: 'TemplateList',
+          templates: mockTemplates,
+        },
+      },
+    },
+  },
+  {
+    request: {
+      query: WorkspaceTemplatesDocument,
+      variables: { workspaceNamespace: 'personal' }, // If passing workspace name instead of namespace
+    },
+    result: {
+      data: {
+        templateList: {
+          __typename: 'TemplateList',
+          templates: [],
+        },
+      },
+    },
+  },
+  {
+    request: {
+      query: WorkspaceTemplatesDocument,
+      variables: { workspaceNamespace: 'tenant-johndoe' }, // If passing tenant namespace
+    },
+    result: {
+      data: {
+        templateList: {
+          __typename: 'TemplateList',
+          templates: [],
         },
       },
     },
