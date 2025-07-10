@@ -24,6 +24,8 @@ import { cleanupLabels, WorkspaceRole } from '../../../../utils';
 import { ModalAlert } from '../../../common/ModalAlert';
 import { TemplatesTableRowSettings } from '../TemplatesTableRowSettings';
 import NodeSelectorIcon from '../../../common/NodeSelectorIcon/NodeSelectorIcon';
+import ModalCreateTemplate, { Template as TemplateType } from '../../ModalCreateTemplate/ModalCreateTemplate';
+import { useApplyTemplateMutation } from '../../../../generated-types'; // <-- Use the correct hook
 
 export interface ITemplatesTableRowProps {
   template: Template;
@@ -93,6 +95,15 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
   const [showDeleteModalConfirm, setShowDeleteModalConfirm] = useState(false);
   const [createDisabled, setCreateDisabled] = useState(false);
 
+  // Modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateType | undefined>(undefined);
+
+  // Update mutation
+  const [applyTemplateMutation, { loading: updateLoading }] = useApplyTemplateMutation({
+    onError: apolloErrorCatcher,
+  });
+
   const createInstanceHandler = useCallback(() => {
     setCreateDisabled(true);
     createInstance(template.id)
@@ -103,6 +114,59 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
       })
       .catch(() => setCreateDisabled(false));
   }, [createInstance, expandRow, refreshClock, template.id]);
+
+  const handleEditTemplate = (template: TemplateType) => {
+    setSelectedTemplate(template);
+    setShowEditModal(true);
+  };
+
+  // Handler to submit the update mutation
+  const handleUpdateTemplate = async (updatedTemplate: TemplateType) => {
+    // Build the patch JSON for the template update
+    const patch = {
+      spec: {
+        prettyName: updatedTemplate.name,
+        description: updatedTemplate.description ?? '', // Add description if needed
+        environmentList: [
+          {
+            name: updatedTemplate.name,
+            image: updatedTemplate.image,
+            guiEnabled: updatedTemplate.gui,
+            persistent: updatedTemplate.persistent,
+            mountMyDriveVolume: updatedTemplate.mountMyDrive,
+            environmentType: updatedTemplate.vmorcontainer,
+            resources: {
+              cpu: updatedTemplate.cpu,
+              memory: `${updatedTemplate.ram}Gi`,
+              disk: updatedTemplate.persistent ? `${updatedTemplate.disk}Gi` : undefined,
+              reservedCPUPercentage: 100, // or your default
+            },
+            sharedVolumeMounts: updatedTemplate.sharedVolumeMountInfos?.map(sv => ({
+              sharedVolume: {
+                namespace: sv.sharedVolume.namespace,
+                name: sv.sharedVolume.name,
+              },
+              mountPath: sv.mountPath,
+              readOnly: sv.readOnly,
+            })),
+          },
+        ],
+        workspaceCrownlabsPolitoItWorkspaceRef: {
+          name: template.workspaceName,
+          namespace: template.workspaceNamespace,
+        },
+      },
+    };
+
+    return applyTemplateMutation({
+      variables: {
+        templateId: template.id,
+        workspaceNamespace: template.workspaceNamespace,
+        patchJson: JSON.stringify(patch),
+        manager: 'web-frontend', // or your manager string
+      },
+    });
+  };
 
   const instancesLimit = data?.tenant?.status?.quota?.instances ?? 1;
 
@@ -159,6 +223,18 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
         ]}
         show={showDeleteModalConfirm}
         setShow={setShowDeleteModalConfirm}
+      />
+      <ModalCreateTemplate
+        show={showEditModal}
+        setShow={setShowEditModal}
+        template={selectedTemplate}
+        images={[]} // <-- Pass your images array
+        cpuInterval={{ min: 1, max: 8 }} // <-- Pass actual intervals
+        ramInterval={{ min: 1, max: 32 }}
+        diskInterval={{ min: 10, max: 100 }}
+        workspaceNamespace={template.workspaceNamespace}
+        submitHandler={handleUpdateTemplate}
+        loading={updateLoading}
       />
       <div className="w-full flex justify-between py-0">
         <div
@@ -243,8 +319,9 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
           {role === WorkspaceRole.manager ? (
             <TemplatesTableRowSettings
               id={template.id}
+              template={template} // <-- Pass the template object
               createInstance={createInstance}
-              editTemplate={editTemplate}
+              editTemplate={handleEditTemplate} // <-- Pass handler
               deleteTemplate={() => {
                 refetchInstancesLabelSelector()
                   .then(ils => {

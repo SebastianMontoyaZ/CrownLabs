@@ -16,6 +16,12 @@ const { Text, Title } = Typography;
 export interface IQuotaDisplayProps {
   tenantNamespace: string;
   instances: ItPolitoCrownlabsV1alpha2Instance[];
+  templates: any[]; // keep as is
+  workspaceQuota: {
+    cpu?: string | number;
+    memory?: string;
+    instances?: number;
+  };
 }
 
 // Helper function to parse memory string (e.g., "4Gi" -> 4)
@@ -49,34 +55,25 @@ const parseMemory = (memoryStr: string): number => {
 
 const QuotaDisplay: FC<IQuotaDisplayProps> = ({
   tenantNamespace,
+  templates,
   instances,
+  workspaceQuota,
 }) => {
-  const { data: tenantData } = useContext(TenantContext);
+  // Use workspaceQuota directly
+  const quota = workspaceQuota;
 
-  // Get actual quota data from tenant context
-  const quota = tenantData?.tenant?.status?.quota;
-
-  // Calculate current usage from running instances
+  // Calculate current usage: sum resources for each template times its running instances
   const currentUsage = useMemo(() => {
     let usedCpu = 0;
     let usedMemory = 0;
     let runningInstances = 0;
 
-    instances.forEach(instance => {
-      // Only count running instances
-      if (instance.spec?.running && instance.status?.phase === 'Ready') {
-        runningInstances++;
-
-        // Get CPU and memory from template spec
-        const templateRef = instance.spec?.templateCrownlabsPolitoItTemplateRef;
-        const template =
-          templateRef?.templateWrapper?.itPolitoCrownlabsV1alpha2Template;
-        const environment = template?.spec?.environmentList?.[0];
-
-        if (environment?.resources) {
-          usedCpu += environment.resources.cpu || 0;
-          usedMemory += parseMemory(environment.resources.memory || '0');
-        }
+    templates.forEach(template => {
+      const count = template.instances?.length || 0;
+      runningInstances += count;
+      if (template.resources) {
+        usedCpu += (template.resources.cpu || 0) * count;
+        usedMemory += parseMemory(template.resources.memory || '0') * count;
       }
     });
 
@@ -85,13 +82,13 @@ const QuotaDisplay: FC<IQuotaDisplayProps> = ({
       memory: usedMemory,
       instances: runningInstances,
     };
-  }, [instances]);
+  }, [templates]);
 
   // Quota limits with defaults
   const quotaLimits = {
     cpu: quota?.cpu ? parseInt(quota.cpu) : 8,
-    memory: quota?.memory ? parseMemory(quota.memory) : 32,
-    instances: quota?.instances || 10,
+    memory: quota?.memory ? parseMemory(quota.memory) : 16,
+    instances: quota?.instances || 8,
   };
 
   // Calculate percentages

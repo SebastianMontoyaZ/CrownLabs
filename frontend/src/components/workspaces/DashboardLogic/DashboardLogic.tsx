@@ -8,6 +8,7 @@ import {
   Role,
   TenantsDocument,
   useWorkspacesQuery,
+  useWorkspaceQuotasQuery,
 } from '../../../generated-types';
 import type { Workspace } from '../../../utils';
 import { WorkspaceRole } from '../../../utils';
@@ -59,6 +60,21 @@ const DashboardLogic: FC = () => {
     },
     [workspaceQueryData?.workspaces?.items],
   );
+
+  const { data: quotasData, loading: quotasLoading, error: quotasError } = useWorkspaceQuotasQuery();
+
+  const workspaceQuotas = useMemo(() => {
+    // Map workspace name to quota for easy lookup
+    const map: Record<string, { cpu: any; memory: any; instances: number }> = {};
+    quotasData?.workspaces?.items?.forEach(ws => {
+      if (ws?.metadata?.name && ws?.spec?.quota) {
+        map[ws.metadata.name] = ws.spec.quota;
+      }
+    });
+    return map;
+  }, [quotasData]);
+
+  console.log('workspaceQuotas:', workspaceQuotas);
 
   useEffect(() => {
     if (loadCandidates) {

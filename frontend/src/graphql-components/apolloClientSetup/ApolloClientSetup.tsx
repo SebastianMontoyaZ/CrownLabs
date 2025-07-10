@@ -39,7 +39,7 @@ const DEV_MODE = process.env.NODE_ENV === 'development';
 console.log('🚀 Development mode with CORRECTLY MOCKED data loaded');
 
 // Enhanced mock data with proper relationships
-const MOCK_TENANT_NAMESPACE = 'tenant-johndoe';
+const MOCK_TENANT_NAMESPACE = 'workspace-personal-johndoe';
 const MOCK_WORKSPACE_NAMESPACE = 'workspace-dev-johndoe';
 const MOCK_PERSONAL_WORKSPACE_NAMESPACE = 'workspace-personal-johndoe';
 
@@ -100,6 +100,12 @@ const mockWorkspaces = [
       __typename: 'WorkspaceSpec',
       prettyName: 'Development Environment',
       environmentList: ['Container', 'VirtualMachine'],
+      quota: {
+        __typename: 'Quota',
+        cpu: '8',
+        memory: '16Gi',
+        instances: 10,
+      },
     },
     status: {
       __typename: 'WorkspaceStatus',
@@ -121,6 +127,12 @@ const mockWorkspaces = [
       __typename: 'WorkspaceSpec',
       prettyName: 'Personal Workspace',
       environmentList: ['Container'],
+      quota: {
+        __typename: 'Quota',
+        cpu: '4',
+        memory: '8Gi',
+        instances: 5,
+      },
     },
     status: {
       __typename: 'WorkspaceStatus',
@@ -549,23 +561,23 @@ const mocks = [
     result: {
       data: {
         instanceList: {
-          __typename: 'InstanceList',
+          __typename: 'ItPolitoCrownlabsV1alpha2InstanceList', // Changed from 'ItPolitoCrownlabsV1alpha2InstanceList' to 'InstanceList'
           instances: [
-            // Add instances that should appear in personal workspace
+            // Personal VS Code instance
             {
-              __typename: 'Instance',
+              __typename: 'ItPolitoCrownlabsV1alpha2Instance',
               metadata: {
-                __typename: 'ObjectMeta',
+                __typename: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta', // Changed from 'IoK8sApimachineryPkgApisMetaV1ObjectMeta' to 'ObjectMeta'
                 name: 'personal-vscode-instance-1',
                 namespace: MOCK_TENANT_NAMESPACE,
                 creationTimestamp: '2024-01-02T10:00:00Z',
                 labels: {
-                  'crownlabs.polito.it/template': 'personal-vscode-template',
-                  'crownlabs.polito.it/workspace': 'personal',
+                  'crownlabsPolitoItTemplate': 'personal-vscode-template',
+                  'crownlabsPolitoItWorkspace': 'personal',
                 },
               },
               spec: {
-                __typename: 'InstanceSpec',
+                __typename: 'InstanceSpec', // Changed from 'Spec3' to 'InstanceSpec'
                 running: true,
                 prettyName: 'My Personal VS Code',
                 templateCrownlabsPolitoItTemplateRef: {
@@ -594,7 +606,7 @@ const mocks = [
                 },
               },
               status: {
-                __typename: 'Status3',
+                __typename: 'InstanceStatus', // Changed from 'Status3' to 'InstanceStatus'
                 phase: 'Ready',
                 url: 'https://personal-vscode-instance-1.crownlabs.polito.it',
                 ip: '10.1.1.102',
@@ -602,16 +614,17 @@ const mocks = [
                 nodeSelector: {},
               },
             },
+            // Personal Python instance
             {
-              __typename: 'Instance',
+              __typename: 'ItPolitoCrownlabsV1alpha2Instance',
               metadata: {
-                __typename: 'ObjectMeta',
+                __typename: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta',
                 name: 'personal-python-instance-1',
                 namespace: MOCK_TENANT_NAMESPACE,
                 creationTimestamp: '2024-01-02T14:00:00Z',
                 labels: {
-                  'crownlabs.polito.it/template': 'personal-python-template',
-                  'crownlabs.polito.it/workspace': 'personal',
+                  'crownlabsPolitoItTemplate': 'personal-python-template',
+                  'crownlabsPolitoItWorkspace': 'personal',
                 },
               },
               spec: {
@@ -644,7 +657,7 @@ const mocks = [
                 },
               },
               status: {
-                __typename: 'Status3',
+                __typename: 'InstanceStatus',
                 phase: 'Stopped',
                 url: null,
                 ip: null,
@@ -652,7 +665,7 @@ const mocks = [
                 nodeSelector: {},
               },
             },
-            // Also include the existing development workspace instances
+            // Development workspace Ubuntu instance
             {
               __typename: 'Instance',
               metadata: {
@@ -695,7 +708,7 @@ const mocks = [
                 },
               },
               status: {
-                __typename: 'Status3',
+                __typename: 'InstanceStatus',
                 phase: 'Ready',
                 url: 'https://ubuntu-dev-instance-1.crownlabs.polito.it',
                 ip: '10.1.1.100',
@@ -797,7 +810,7 @@ const mocks = [
     },
     result: {
       data: {
-        updatedTemplate: null, // No initial update
+        updatedTemplate: null, // This one might be correct, but let's double-check
       },
     },
   },
@@ -813,7 +826,7 @@ const mocks = [
     },
     result: {
       data: {
-        updatedTemplate: null, // No initial update
+        updatedTemplate: null,
       },
     },
   },
@@ -826,23 +839,40 @@ const mocks = [
     },
     result: {
       data: {
-        updatedTemplate: null, // No initial update
+        updatedTemplate: null,
       },
     },
   },
-
-  // Updated workspace templates subscription - for personal workspace with templateId
   {
     request: {
       query: UpdatedWorkspaceTemplatesDocument,
-      variables: {
-        workspaceNamespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE,
-        templateId: undefined,
-      },
+      variables: { workspaceNamespace: MOCK_PERSONAL_WORKSPACE_NAMESPACE, templateId: undefined },
     },
     result: {
       data: {
-        updatedTemplate: null, // No initial update
+        updatedTemplate: null,
+      },
+    },
+  },
+  {
+    request: {
+      query: UpdatedWorkspaceTemplatesDocument,
+      variables: { workspaceNamespace: MOCK_WORKSPACE_NAMESPACE },
+    },
+    result: {
+      data: {
+        updatedTemplate: null,
+      },
+    },
+  },
+  {
+    request: {
+      query: UpdatedWorkspaceTemplatesDocument,
+      variables: { workspaceNamespace: MOCK_WORKSPACE_NAMESPACE, templateId: undefined },
+    },
+    result: {
+      data: {
+        updatedTemplate: null,
       },
     },
   },
@@ -855,7 +885,7 @@ const mocks = [
     },
     result: {
       data: {
-        updatedInstance: null, // No initial update
+        updateInstance: null, // Changed from 'updatedInstance' to 'updateInstance'
       },
     },
   },
@@ -868,7 +898,7 @@ const mocks = [
     },
     result: {
       data: {
-        updatedInstance: null, // No initial update
+        updateInstance: null, // Changed from 'updatedInstance' to 'updateInstance'
       },
     },
   },
@@ -881,7 +911,7 @@ const mocks = [
     },
     result: {
       data: {
-        updatedInstance: null, // No initial update
+        updateInstance: null, // Changed from 'updatedInstance' to 'updateInstance'
       },
     },
   },
@@ -897,7 +927,7 @@ const mocks = [
     },
     result: {
       data: {
-        updatedInstance: null,
+        updateInstance: null, // Changed from 'updatedInstance' to 'updateInstance'
       },
     },
   },
@@ -912,7 +942,7 @@ const mocks = [
     },
     result: {
       data: {
-        updatedInstance: null,
+        updateInstance: null, // Changed from 'updatedInstance' to 'updateInstance'
       },
     },
   },
@@ -927,7 +957,7 @@ const mocks = [
     },
     result: {
       data: {
-        updatedInstance: null,
+        updateInstance: null, // Changed from 'updatedInstance' to 'updateInstance'
       },
     },
   },

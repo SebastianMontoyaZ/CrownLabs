@@ -2,77 +2,70 @@ import type { FC } from 'react';
 import { useState, useEffect, useContext } from 'react';
 import {
   Modal,
-  Select,
+  Slider,
   Form,
   Input,
-  Switch,
-  InputNumber,
-  Button,
-  Space,
-  Card,
-  Alert,
-  Tabs,
-  Tag,
+  Checkbox,
   Tooltip,
   AutoComplete,
-  Slider,
 } from 'antd';
+import { Button } from 'antd';
 import type {
   CreateTemplateMutation,
   SharedVolumeMountsListItem,
 } from '../../../generated-types';
 import {
   EnvironmentType,
-  useWorkspaceSharedVolumesQuery,
+  useWorkspaceTemplatesQuery,
 } from '../../../generated-types';
 import type { FetchResult } from '@apollo/client';
 import { ErrorContext } from '../../../errorHandling/ErrorContext';
-import {
-  PlusOutlined,
-  EditOutlined,
-  ContainerOutlined,
-  InfoCircleOutlined,
-  DesktopOutlined,
-  CloudOutlined,
-  RocketOutlined,
-  CodeOutlined,
-} from '@ant-design/icons';
+import ShVolFormItem, { type ShVolFormItemValue } from './ShVolFormItem';
 
-const { Option } = Select;
-const { TextArea } = Input;
-const { TabPane } = Tabs;
+const alternativeHandle = { border: 'solid 2px #1c7afdd8' };
 
 export type Image = {
   name: string;
-  vmorcontainer: Array<EnvironmentType>;
+  vmorcontainer: Array<VmOrContainer>;
   registry: string;
 };
 
-export interface Template {
+type VmOrContainer = EnvironmentType.VirtualMachine | EnvironmentType.Container;
+
+type Template = {
   name?: string;
-  description?: string;
   image?: string;
   registry?: string;
-  vmorcontainer?: EnvironmentType;
+  vmorcontainer?: VmOrContainer;
   persistent: boolean;
   mountMyDrive: boolean;
   gui: boolean;
   cpu: number;
   ram: number;
-  disk?: number;
+  disk: number;
   sharedVolumeMountInfos?: SharedVolumeMountsListItem[];
-}
+};
 
+type Interval = {
+  max: number;
+  min: number;
+};
+
+type Valid = {
+  name: { status: string; help?: string };
+  image: { status: string; help?: string };
+};
 export interface IModalCreateTemplateProps {
   workspaceNamespace: string;
-  cpuInterval: { min: number; max: number };
-  ramInterval: { min: number; max: number };
-  diskInterval: { min: number; max: number };
-  setShow: (show: boolean) => void;
+  template?: Template;
+  images: Array<Image>;
+  cpuInterval: Interval;
+  ramInterval: Interval;
+  diskInterval: Interval;
   show: boolean;
-  images: Image[];
+  setShow: (status: boolean) => void;
   submitHandler: (
-    t: Template
+    t: Template,
   ) => Promise<
     FetchResult<
       CreateTemplateMutation,
@@ -83,490 +76,445 @@ export interface IModalCreateTemplateProps {
   loading: boolean;
 }
 
-const defaultCloudInit = `#cloud-config
-# Cloud-init configuration for CrownLabs VM
-package_update: true
-package_upgrade: true
+const getImageNoVer = (image: string) =>
+  image.split(':').length === 2 ? image.split(':')[0] : image;
 
-packages:
-  - git
-  - curl
-  - wget
-  - vim
-  - htop
+const isEmptyOrSpaces = (str: string) => !str || str.match(/^ *$/);
 
-runcmd:
-  - echo "VM customization completed" > /tmp/cloud-init-done
+const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
+  const {
+    show,
+    setShow,
+    cpuInterval,
+    ramInterval,
+    diskInterval,
+    images,
+    template,
+    submitHandler,
+    loading,
+    workspaceNamespace,
+  } = props;
 
-timezone: UTC
-final_message: "CrownLabs VM setup completed successfully!"
-`;
+  const imagesNoVersion = images.map(x => getImageNoVer(x.name));
 
-const popularContainerImages = [
-  'ubuntu:22.04',
-  'ubuntu:20.04',
-  'python:3.11',
-  'python:3.9',
-  'node:18',
-  'node:16',
-  'nginx:latest',
-  'postgres:15',
-  'redis:7',
-  'mysql:8.0',
-  'jupyter/datascience-notebook:latest',
-  'jupyter/scipy-notebook:latest',
-];
+  const [buttonDisabled, setButtonDisabled] = useState(true);
 
-const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({
-  workspaceNamespace,
-  cpuInterval,
-  ramInterval,
-  diskInterval,
-  setShow,
-  show,
-  images,
-  submitHandler,
-  loading,
-}) => {
-  const [form] = Form.useForm();
-  const [environmentType, setEnvironmentType] = useState<EnvironmentType>(
-    EnvironmentType.Container
-  );
-  const [customImageUrl, setCustomImageUrl] = useState<string>('');
-  const [cloudInit, setCloudInit] = useState<string>(defaultCloudInit);
-  const [buttonDisabled, setButtonDisabled] = useState<boolean>(true);
-
-  const { apolloErrorCatcher } = useContext(ErrorContext);
-
-  // Fetch shared volumes for the workspace
-  const { data: sharedVolumesData } = useWorkspaceSharedVolumesQuery({
-    variables: { workspaceNamespace },
-    onError: apolloErrorCatcher,
+  const [formTemplate, setFormTemplate] = useState<Template>({
+    name: template && template.name,
+    image: template && template.image,
+    registry: template && template.registry,
+    vmorcontainer: template && template.vmorcontainer,
+    persistent: template?.persistent ?? false,
+    mountMyDrive: template?.mountMyDrive ?? true,
+    gui: template?.gui ?? true,
+    cpu: template ? template.cpu : cpuInterval.min,
+    ram: template ? template.ram : ramInterval.min,
+    disk: template ? template.disk : diskInterval.min,
+    sharedVolumeMountInfos: template ? template.sharedVolumeMountInfos : [],
   });
 
-  const handleEnvironmentTypeChange = (value: EnvironmentType) => {
-    setEnvironmentType(value);
-    form.setFieldsValue({ environmentType: value });
-    // Clear image selection when switching types
-    form.setFieldsValue({ image: undefined });
-  };
+  const [valid, setValid] = useState<Valid>({
+    name: { status: 'success', help: undefined },
+    image: { status: 'success', help: undefined },
+  });
 
-  const handleSubmit = () => {
-    form.validateFields().then(values => {
-      const templateData: Template = {
-        name: values.templateName,
-        description: values.description,
-        image: customImageUrl || values.image,
-        registry: values.registry,
-        vmorcontainer: environmentType,
-        gui: values.gui || true,
-        persistent: values.persistent || false,
-        mountMyDrive: values.mountMyDrive || true,
-        cpu: values.cpu,
-        ram: values.ram,
-        disk: values.disk,
-        sharedVolumeMountInfos: values.sharedVolumeMountInfos || [],
-      };
+  const [imagesSearchOptions, setImagesSearchOptions] = useState<string[]>();
 
-      submitHandler(templateData).then(() => {
-        handleCancel();
+  useEffect(() => {
+    if (
+      formTemplate.name &&
+      formTemplate.image &&
+      formTemplate.vmorcontainer &&
+      valid.name.status === 'success' &&
+      (template
+        ? template.name !== formTemplate.name ||
+          template.image !== formTemplate.image ||
+          template.vmorcontainer !== formTemplate.vmorcontainer ||
+          template.gui !== formTemplate.gui ||
+          template.persistent !== formTemplate.persistent ||
+          template.cpu !== formTemplate.cpu ||
+          template.ram !== formTemplate.ram ||
+          template.disk !== formTemplate.disk ||
+          JSON.stringify(template.sharedVolumeMountInfos) !==
+            JSON.stringify(formTemplate.sharedVolumeMountInfos)
+        : true)
+    )
+      setButtonDisabled(false);
+    else setButtonDisabled(true);
+  }, [formTemplate, template, valid.name.status]);
+
+  const nameValidator = () => {
+    if (formTemplate.name === '' || formTemplate.name === undefined) {
+      setValid(old => {
+        return {
+          ...old,
+          name: { status: 'error', help: 'Please insert template name' },
+        };
       });
-    });
-  };
-
-  const handleCancel = () => {
-    setShow(false);
-    form.resetFields();
-    setEnvironmentType(EnvironmentType.Container);
-    setCustomImageUrl('');
-    setCloudInit(defaultCloudInit);
-  };
-
-  // Get available images based on environment type
-  const getAvailableImages = () => {
-    return images
-      .filter(img => img.vmorcontainer.includes(environmentType))
-      .map(img => img.name);
-  };
-
-  const renderImageSelection = () => {
-    if (environmentType === EnvironmentType.Container) {
-      return (
-        <Card
-          title={
-            <Space>
-              <ContainerOutlined />
-              Container Image
-            </Space>
-          }
-          style={{ marginBottom: 16 }}
-        >
-          <Alert
-            message="Container Image Options"
-            description="Select from available images, popular Docker Hub images, or specify a custom image URL."
-            type="info"
-            style={{ marginBottom: 16 }}
-            showIcon
-          />
-
-          <Form.Item
-            label="Image Source"
-            tooltip="Choose how you want to specify the container image"
-          >
-            <Select
-              value={customImageUrl ? 'custom' : 'predefined'}
-              onChange={value => {
-                if (value === 'custom') {
-                  setCustomImageUrl('');
-                } else {
-                  setCustomImageUrl('');
-                }
-              }}
-            >
-              <Option value="predefined">Select from available images</Option>
-              <Option value="custom">Specify custom image URL</Option>
-            </Select>
-          </Form.Item>
-
-          {!customImageUrl ? (
-            <Form.Item
-              label="Container Image"
-              name="image"
-              rules={[
-                { required: true, message: 'Please select a container image' },
-              ]}
-            >
-              <AutoComplete
-                placeholder="Search or select an image..."
-                options={[
-                  ...getAvailableImages().map(img => ({
-                    value: img,
-                    label: img,
-                  })),
-                  ...popularContainerImages.map(img => ({
-                    value: img,
-                    label: (
-                      <span>
-                        {img} <Tag color="blue">Popular</Tag>
-                      </span>
-                    ),
-                  })),
-                ]}
-                filterOption={(inputValue, option) =>
-                  option?.value
-                    .toLowerCase()
-                    .includes(inputValue.toLowerCase()) || false
-                }
-              />
-            </Form.Item>
-          ) : (
-            <Form.Item
-              label="Custom Image URL"
-              tooltip="Enter any Docker image URL (e.g., docker.io/library/ubuntu:22.04)"
-            >
-              <Input
-                value={customImageUrl}
-                onChange={e => setCustomImageUrl(e.target.value)}
-                placeholder="docker.io/library/ubuntu:22.04"
-              />
-            </Form.Item>
-          )}
-
-          <div style={{ fontSize: '12px', color: '#666' }}>
-            💡 Examples: ubuntu:22.04, python:3.11,
-            jupyter/datascience-notebook:latest
-          </div>
-        </Card>
-      );
+    } else if (
+      !errorFetchTemplates &&
+      !loadingFetchTemplates &&
+      dataFetchTemplates?.templateList?.templates
+        ?.map(t => t?.spec?.prettyName)
+        .includes(formTemplate.name.trim())
+    ) {
+      setValid(old => {
+        return {
+          ...old,
+          name: {
+            status: 'error',
+            help: 'This name has already been used in this workspace',
+          },
+        };
+      });
     } else {
-      return (
-        <Card
-          title={
-            <Space>
-              <CloudOutlined />
-              Virtual Machine Image
-            </Space>
-          }
-          style={{ marginBottom: 16 }}
-        >
-          <Form.Item
-            label="VM Image"
-            name="image"
-            rules={[{ required: true, message: 'Please select a VM image' }]}
-          >
-            <Select placeholder="Select a VM image...">
-              {getAvailableImages().map(img => (
-                <Option key={img} value={img}>
-                  {img}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            label="Cloud-Init Configuration"
-            tooltip="Cloud-init script that runs on VM first boot"
-          >
-            <TextArea
-              value={cloudInit}
-              onChange={e => setCloudInit(e.target.value)}
-              rows={10}
-              placeholder={defaultCloudInit}
-            />
-          </Form.Item>
-
-          <div style={{ fontSize: '12px', color: '#666', marginTop: 4 }}>
-            💡 Cloud-init will run on VM first boot to install packages and
-            configure the system
-          </div>
-        </Card>
-      );
+      setValid(old => {
+        return {
+          ...old,
+          name: { status: 'success', help: undefined },
+        };
+      });
     }
+  };
+
+  const imageValidator = () => {
+    if (isEmptyOrSpaces(formTemplate.image!)) {
+      setValid(old => {
+        return {
+          ...old,
+          image: { status: 'error', help: 'Insert an image' },
+        };
+      });
+    } else {
+      setValid(old => {
+        return {
+          ...old,
+          image: { status: 'success', help: undefined },
+        };
+      });
+    }
+  };
+
+  const [form] = Form.useForm();
+
+  const fullLayout = {
+    wrapperCol: { offset: 0, span: 24 },
+  };
+
+  const closehandler = () => {
+    setShow(false);
+  };
+
+  const { apolloErrorCatcher } = useContext(ErrorContext);
+  const {
+    data: dataFetchTemplates,
+    error: errorFetchTemplates,
+    loading: loadingFetchTemplates,
+    refetch: refetchTemplates,
+  } = useWorkspaceTemplatesQuery({
+    onError: apolloErrorCatcher,
+    variables: { workspaceNamespace },
+  });
+
+  const onSubmit = () => {
+    const shvolMounts: ShVolFormItemValue[] = form.getFieldValue('shvolss');
+    const sharedVolumeMountInfos: SharedVolumeMountsListItem[] =
+      shvolMounts.map(obj => ({
+        sharedVolume: {
+          namespace: obj.shvol.split('/')[0],
+          name: obj.shvol.split('/')[1],
+        },
+        mountPath: obj.mountpath,
+        readOnly: Boolean(obj.readonly),
+      }));
+
+    submitHandler({
+      ...formTemplate,
+      image:
+        images.find(i => getImageNoVer(i.name) === formTemplate.image)?.name ??
+        formTemplate.image,
+      sharedVolumeMountInfos: sharedVolumeMountInfos,
+    })
+      .then(() => {
+        setShow(false);
+        setFormTemplate(old => {
+          return { ...old, name: undefined };
+        });
+        form.setFieldsValue({
+          templatename: undefined,
+        });
+      })
+      .catch(apolloErrorCatcher);
   };
 
   return (
     <Modal
-      title={
-        <Space>
-          <RocketOutlined />
-          Create Your Custom Template
-        </Space>
-      }
+      destroyOnHidden={true}
+      styles={{ body: { paddingBottom: '5px' } }}
+      centered
+      footer={null}
+      title={template ? 'Modify template' : 'Create a new template'}
       open={show}
-      onCancel={handleCancel}
-      width={800}
-      footer={[
-        <Button key="cancel" onClick={handleCancel}>
-          Cancel
-        </Button>,
-        <Button
-          key="submit"
-          type="primary"
-          loading={loading}
-          onClick={handleSubmit}
-          disabled={buttonDisabled}
-          icon={<PlusOutlined />}
-        >
-          Create Template
-        </Button>,
-      ]}
+      onCancel={closehandler}
+      width="600px"
     >
-      <Alert
-        message="Create Your Personal Environment"
-        description="Design custom environments for your workspace. Choose between containers for lightweight applications or VMs for complete operating systems."
-        type="info"
-        icon={<InfoCircleOutlined />}
-        style={{ marginBottom: 24 }}
-        showIcon
-      />
-
       <Form
+        labelCol={{ span: 2 }}
+        wrapperCol={{ span: 22 }}
         form={form}
-        layout="vertical"
+        onSubmitCapture={onSubmit}
         initialValues={{
-          environmentType: EnvironmentType.Container,
-          gui: true,
-          persistent: false,
-          mountMyDrive: true,
-          cpu: Math.min(2, cpuInterval.max),
-          ram: Math.min(4, ramInterval.max),
-          disk: Math.min(10, diskInterval.max || 20),
-        }}
-        onValuesChange={() => {
-          // Enable/disable submit button based on form validation
-          form
-            .validateFields(['templateName', 'image'])
-            .then(() => setButtonDisabled(false))
-            .catch(() => setButtonDisabled(true));
+          templatename: formTemplate.name,
+          image: formTemplate.image,
+          vmorcontainer: formTemplate.vmorcontainer,
+          cpu: formTemplate.cpu,
+          ram: formTemplate.ram,
+          disk: formTemplate.disk,
         }}
       >
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '2fr 1fr',
-            gap: 16,
-          }}
+        <Form.Item
+          {...fullLayout}
+          name="templatename"
+          className="mt-1"
+          required
+          validateStatus={valid.name.status as 'success' | 'error'}
+          help={valid.name.help}
+          validateTrigger="onChange"
+          rules={[
+            {
+              required: true,
+              validator: nameValidator,
+            },
+          ]}
         >
-          <Form.Item
-            label="Template Name"
-            name="templateName"
-            rules={[
-              { required: true, message: 'Please enter a template name' },
-            ]}
-          >
-            <Input placeholder="My Awesome Development Environment" />
-          </Form.Item>
-
-          <Form.Item
-            label="Environment Type"
-            name="environmentType"
-            rules={[
-              { required: true, message: 'Please select environment type' },
-            ]}
-          >
-            <Select
-              value={environmentType}
-              onChange={handleEnvironmentTypeChange}
-            >
-              <Option value={EnvironmentType.Container}>
-                <Space>
-                  <ContainerOutlined />
-                  Container
-                </Space>
-              </Option>
-              <Option value={EnvironmentType.VirtualMachine}>
-                <Space>
-                  <DesktopOutlined />
-                  Virtual Machine
-                </Space>
-              </Option>
-            </Select>
-          </Form.Item>
-        </div>
-
-        <Form.Item label="Description" name="description">
-          <TextArea
-            placeholder="Describe what this environment is for..."
-            rows={3}
-            showCount
-            maxLength={500}
+          <Input
+            onFocus={() => refetchTemplates({ workspaceNamespace })}
+            onChange={e =>
+              setFormTemplate(old => {
+                return { ...old, name: e.target.value };
+              })
+            }
+            placeholder="Insert template name"
+            allowClear
           />
         </Form.Item>
 
-        {renderImageSelection()}
+        <div className="flex justify-between items-start inline mb-6">
+          <Form.Item
+            className="my-0"
+            {...fullLayout}
+            style={{ width: '63%' }}
+            name="image"
+            required
+            validateStatus={valid.image.status as 'success' | 'error'}
+            help={valid.image.help}
+            validateTrigger="onChange"
+            rules={[
+              {
+                required: true,
+                validator: imageValidator,
+              },
+            ]}
+          >
+            <AutoComplete
+              options={imagesSearchOptions?.map(x => {
+                return {
+                  value: x,
+                };
+              })}
+              onFocus={() => {
+                if (!imagesSearchOptions?.length)
+                  setImagesSearchOptions(imagesNoVersion!);
+              }}
+              onChange={value => {
+                setImagesSearchOptions(
+                  imagesNoVersion?.filter(s => s.includes(value)),
+                );
+                if (value !== formTemplate.image) {
+                  const imageFound = images.find(
+                    i => getImageNoVer(i.name) === value,
+                  );
+                  setFormTemplate(old => {
+                    return {
+                      ...old,
+                      image: String(value),
+                      registry: imageFound?.registry,
+                      vmorcontainer:
+                        imageFound?.vmorcontainer[0] ??
+                        EnvironmentType.Container,
+                      persistent: false,
+                      gui: true,
+                    };
+                  });
+                  form.setFieldsValue({
+                    image: value,
+                    vmorcontainer:
+                      imageFound?.vmorcontainer[0] ?? EnvironmentType.Container,
+                  });
+                }
+              }}
+              placeholder="Select an image"
+            />
+          </Form.Item>
 
-        <Card
-          title="Environment Features"
-          size="small"
-          style={{ marginBottom: 16 }}
+          <div className="mt-3">
+            <span>GUI:</span>
+            <Checkbox
+              className="ml-3"
+              checked={formTemplate.gui}
+              onChange={() =>
+                setFormTemplate(old => {
+                  return { ...old, gui: !old.gui };
+                })
+              }
+            />
+          </div>
+          <div className="mr-1 mt-3">
+            <span>Persistent: </span>
+            <Tooltip title="A persistent VM/container disk space won't be destroyed after being turned off.">
+              <Checkbox
+                className="ml-3"
+                checked={formTemplate.persistent}
+                onChange={() =>
+                  setFormTemplate(old => {
+                    return {
+                      ...old,
+                      persistent: !old.persistent,
+                      disk: !old.persistent
+                        ? template?.disk || diskInterval.min
+                        : 0,
+                    };
+                  })
+                }
+              />
+            </Tooltip>
+          </div>
+        </div>
+
+        <Form.Item labelAlign="left" className="mt-10" label="CPU" name="cpu">
+          <div className="sm:pl-3 pr-1">
+            <Slider
+              styles={{ handle: alternativeHandle }}
+              defaultValue={formTemplate.cpu}
+              tooltip={{ open: false }}
+              value={formTemplate.cpu}
+              onChange={(value: number) =>
+                setFormTemplate(old => {
+                  return { ...old, cpu: value };
+                })
+              }
+              min={cpuInterval.min}
+              max={cpuInterval.max}
+              marks={{
+                [cpuInterval.min]: `${cpuInterval.min}`,
+                [formTemplate.cpu]: `${formTemplate.cpu}`,
+                [cpuInterval.max]: `${cpuInterval.max}`,
+              }}
+              included={false}
+              step={1}
+              tipFormatter={(value?: number) => `${value} Core`}
+            />
+          </div>
+        </Form.Item>
+        <Form.Item labelAlign="left" label="RAM" name="ram">
+          <div className="sm:pl-3 pr-1">
+            <Slider
+              styles={{ handle: alternativeHandle }}
+              defaultValue={formTemplate.ram}
+              tooltip={{ open: false }}
+              value={formTemplate.ram}
+              onChange={(value: number) =>
+                setFormTemplate(old => {
+                  return { ...old, ram: value };
+                })
+              }
+              min={ramInterval.min}
+              max={ramInterval.max}
+              marks={{
+                [ramInterval.min]: `${ramInterval.min}GB`,
+                [formTemplate.ram]: `${formTemplate.ram}GB`,
+                [ramInterval.max]: `${ramInterval.max}GB`,
+              }}
+              included={false}
+              step={0.25}
+              tipFormatter={(value?: number) => `${value} GB`}
+            />
+          </div>
+        </Form.Item>
+        <Form.Item
+          labelAlign="left"
+          label="DISK"
+          name="disk"
+          className={formTemplate.persistent ? '' : 'hidden'}
         >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr 1fr',
-              gap: 16,
-            }}
-          >
-            <Form.Item
-              label="GUI Desktop"
-              name="gui"
-              valuePropName="checked"
-              tooltip="Enable if you need a graphical desktop interface"
-            >
-              <Switch />
-            </Form.Item>
-
-            <Form.Item
-              label="Persistent Storage"
-              name="persistent"
-              valuePropName="checked"
-              tooltip="Keep your data when environment restarts"
-            >
-              <Switch />
-            </Form.Item>
-
-            <Form.Item
-              label="Mount My Drive"
-              name="mountMyDrive"
-              valuePropName="checked"
-              tooltip="Access your personal files in the environment"
-            >
-              <Switch />
-            </Form.Item>
+          <div className="sm:pl-3 pr-1 ">
+            <Slider
+              styles={{ handle: alternativeHandle }}
+              tooltip={{ open: false }}
+              value={formTemplate.disk}
+              defaultValue={formTemplate.disk}
+              onChange={(value: number) =>
+                setFormTemplate(old => {
+                  return { ...old, disk: value };
+                })
+              }
+              min={diskInterval.min}
+              max={diskInterval.max}
+              marks={{
+                [diskInterval.min]: `${diskInterval.min}GB`,
+                [formTemplate.disk]: `${formTemplate.disk}GB`,
+                [diskInterval.max]: `${diskInterval.max}GB`,
+              }}
+              included={false}
+              step={1}
+              tipFormatter={(value?: number) => `${value} GB`}
+            />
           </div>
-        </Card>
+        </Form.Item>
 
-        <Card title="Resource Configuration" size="small">
-          <Alert
-            message={`Available: ${cpuInterval.max} CPU cores, ${
-              ramInterval.max
-            }GB RAM${diskInterval.max ? `, ${diskInterval.max}GB disk` : ''}`}
-            type="info"
-            style={{ marginBottom: 16 }}
-          />
+        <ShVolFormItem workspaceNamespace={workspaceNamespace} />
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 24,
-            }}
-          >
-            <div>
-              <Form.Item
-                label={`CPU Cores (max ${cpuInterval.max})`}
-                name="cpu"
-                rules={[
-                  { required: true, message: 'Please enter CPU cores' },
-                  {
-                    type: 'number',
-                    min: cpuInterval.min,
-                    max: cpuInterval.max,
-                  },
-                ]}
+        <Form.Item {...fullLayout}>
+          <div className="flex justify-center">
+            {buttonDisabled ? (
+              <Tooltip
+                title={
+                  template
+                    ? 'Cannot modify the Template, please change the old parameters and fill all required fields'
+                    : 'Cannot create the Template, please fill all required fields'
+                }
               >
-                <Slider
-                  min={cpuInterval.min}
-                  max={cpuInterval.max}
-                  step={1}
-                  marks={{
-                    [cpuInterval.min]: `${cpuInterval.min}`,
-                    [cpuInterval.max]: `${cpuInterval.max}`,
-                  }}
-                  tooltip={{ formatter: value => `${value} cores` }}
-                />
-              </Form.Item>
-
-              <Form.Item
-                label={`Memory (max ${ramInterval.max}GB)`}
-                name="ram"
-                rules={[
-                  { required: true, message: 'Please enter memory' },
-                  {
-                    type: 'number',
-                    min: ramInterval.min,
-                    max: ramInterval.max,
-                  },
-                ]}
+                <span className="cursor-not-allowed">
+                  <Button
+                    className="w-24 pointer-events-none"
+                    disabled
+                    htmlType="submit"
+                    type="primary"
+                    shape="round"
+                    size="middle"
+                  >
+                    {template ? 'Modify' : 'Create'}
+                  </Button>
+                </span>
+              </Tooltip>
+            ) : (
+              <Button
+                className="w-24"
+                htmlType="submit"
+                type="primary"
+                shape="round"
+                size="middle"
+                loading={loading}
               >
-                <Slider
-                  min={ramInterval.min}
-                  max={ramInterval.max}
-                  step={0.5}
-                  marks={{
-                    [ramInterval.min]: `${ramInterval.min}GB`,
-                    [ramInterval.max]: `${ramInterval.max}GB`,
-                  }}
-                  tooltip={{ formatter: value => `${value} GB` }}
-                />
-              </Form.Item>
-            </div>
-
-            <div>
-              {diskInterval.max && (
-                <Form.Item
-                  label={`Disk Size (max ${diskInterval.max}GB)`}
-                  name="disk"
-                  tooltip="Persistent disk storage for your environment"
-                >
-                  <Slider
-                    min={diskInterval.min}
-                    max={diskInterval.max}
-                    step={1}
-                    marks={{
-                      [diskInterval.min]: `${diskInterval.min}GB`,
-                      [diskInterval.max]: `${diskInterval.max}GB`,
-                    }}
-                    tooltip={{ formatter: value => `${value} GB` }}
-                  />
-                </Form.Item>
-              )}
-            </div>
+                {!loading && (template ? 'Modify' : 'Create')}
+              </Button>
+            )}
           </div>
-        </Card>
+        </Form.Item>
       </Form>
     </Modal>
   );
 };
 
+export type { Template };
 export default ModalCreateTemplate;

@@ -62,11 +62,3 @@ export const REACT_APP_CROWNLABS_OIDC_REALM = VITE_APP_CROWNLABS_OIDC_REALM;
 // Additional common aliases
 export const REACT_APP_CROWNLABS_OIDC_CLIENT_SECRET = ''; // Usually not needed in frontend
 export const REACT_APP_CROWNLABS_OIDC_REDIRECT_URI = window.location.origin;
-
-console.log('Environment variables loaded:', {
-  VITE_APP_CROWNLABS_GRAPHQL_URL,
-  VITE_APP_CROWNLABS_OIDC_AUTHORITY,
-  VITE_APP_CROWNLABS_OIDC_CLIENT_ID,
-  VITE_APP_CROWNLABS_OIDC_REALM,
-  BASE_URL,
-});
