@@ -8,6 +8,7 @@ import {
   Role,
   TenantsDocument,
   useWorkspacesQuery,
+  useWorkspaceQuotasQuery,
 } from '../../../generated-types';
 import type { Workspace } from '../../../utils';
 import { WorkspaceRole } from '../../../utils';
@@ -20,6 +21,19 @@ const dashboard = new LocalValue(StorageKeys.Dashboard_LoadCandidates, 'false');
 const DashboardLogic: FC = () => {
   const { apolloErrorCatcher } = useContext(ErrorContext);
 
+  const { data: quotasData, loading: quotasLoading, error: quotasError } = useWorkspaceQuotasQuery();
+
+  const workspaceQuotas = useMemo(() => {
+    // Map workspace name to quota for easy lookup
+    const map: Record<string, { cpu: any; memory: any; instances: number }> = {};
+    quotasData?.workspaces?.items?.forEach(ws => {
+      if (ws?.metadata?.name && ws?.spec?.quota) {
+        map[ws.metadata.name] = ws.spec.quota;
+      }
+    });
+    return map;
+  }, [quotasData]); 
+
   const {
     data: tenantData,
     error: tenantError,
@@ -27,12 +41,18 @@ const DashboardLogic: FC = () => {
   } = useContext(TenantContext);
 
   const ws = useMemo(() => {
-    return (
+    const baseWorkspaces =
       tenantData?.tenant?.spec?.workspaces
         ?.filter(w => w?.role !== Role.Candidate)
-        ?.map(makeWorkspace) ?? []
-    );
-  }, [tenantData?.tenant?.spec?.workspaces]);
+        ?.map(makeWorkspace) ?? [];
+
+    // Enrich each workspace with its quota, if available
+    return baseWorkspaces.map(w => ({
+      ...w,
+      quota: workspaceQuotas[w.name], // append quota by workspace name
+    }));
+    // Add workspaceQuotas as a dependency
+  }, [tenantData?.tenant?.spec?.workspaces, workspaceQuotas]);
 
   const [viewWs, setViewWs] = useState<Workspace[]>(ws);
   const client = useApolloClient();
@@ -59,6 +79,9 @@ const DashboardLogic: FC = () => {
     },
     [workspaceQueryData?.workspaces?.items],
   );
+
+
+  console.log('workspaceQuotas:', ws);
 
   useEffect(() => {
     if (loadCandidates) {

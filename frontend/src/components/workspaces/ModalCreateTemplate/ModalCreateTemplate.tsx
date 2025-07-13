@@ -74,6 +74,7 @@ export interface IModalCreateTemplateProps {
     >
   >;
   loading: boolean;
+  isPersonal?: boolean;
 }
 
 const getImageNoVer = (image: string) =>
@@ -93,9 +94,14 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
     submitHandler,
     loading,
     workspaceNamespace,
+    isPersonal = false,
   } = props;
 
-  const imagesNoVersion = images.map(x => getImageNoVer(x.name));
+  // Add "External image" to the options if personal workspace
+  const imagesNoVersion = [
+    ...(isPersonal ? ['**-- External image --**'] : []),
+    ...images.map(x => getImageNoVer(x.name)),
+  ];
 
   const [buttonDisabled, setButtonDisabled] = useState(true);
 
@@ -230,9 +236,9 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
 
     submitHandler({
       ...formTemplate,
-      image:
-        images.find(i => getImageNoVer(i.name) === formTemplate.image)?.name ??
-        formTemplate.image,
+      image: formTemplate.image === '**-- External image --**'
+        ? formTemplate.registry  // Use registry for external images
+        : images.find(i => getImageNoVer(i.name) === formTemplate.image)?.name ?? formTemplate.image,
       sharedVolumeMountInfos: sharedVolumeMountInfos,
     })
       .then(() => {
@@ -246,6 +252,9 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
       })
       .catch(apolloErrorCatcher);
   };
+
+  // Track if "External image" is selected
+  const isExternalImage = formTemplate.image === '**-- External image --**';
 
   return (
     <Modal
@@ -301,9 +310,9 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
 
         <div className="flex justify-between items-start inline mb-6">
           <Form.Item
-            className="my-0"
+            className="mb-4"
             {...fullLayout}
-            style={{ width: '63%' }}
+            style={{ width: '100%' }}
             name="image"
             required
             validateStatus={valid.image.status as 'success' | 'error'}
@@ -317,11 +326,7 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
             ]}
           >
             <AutoComplete
-              options={imagesSearchOptions?.map(x => {
-                return {
-                  value: x,
-                };
-              })}
+              options={imagesNoVersion.map(x => ({ value: x }))}
               onFocus={() => {
                 if (!imagesSearchOptions?.length)
                   setImagesSearchOptions(imagesNoVersion!);
@@ -331,33 +336,71 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
                   imagesNoVersion?.filter(s => s.includes(value)),
                 );
                 if (value !== formTemplate.image) {
-                  const imageFound = images.find(
-                    i => getImageNoVer(i.name) === value,
-                  );
-                  setFormTemplate(old => {
-                    return {
+                  if (value === '**-- External image --**') {
+                    setFormTemplate(old => ({
+                      ...old,
+                      image: '**-- External image --**',
+                      registry: '', // reset registry
+                      vmorcontainer: EnvironmentType.Container,
+                      persistent: false,
+                      gui: true,
+                    }));
+                    form.setFieldsValue({
+                      image: value,
+                      vmorcontainer: EnvironmentType.Container,
+                    });
+                  } else {
+                    const imageFound = images.find(
+                      i => getImageNoVer(i.name) === value,
+                    );
+                    setFormTemplate(old => ({
                       ...old,
                       image: String(value),
                       registry: imageFound?.registry,
                       vmorcontainer:
-                        imageFound?.vmorcontainer[0] ??
-                        EnvironmentType.Container,
+                        imageFound?.vmorcontainer[0] ?? EnvironmentType.Container,
                       persistent: false,
                       gui: true,
-                    };
-                  });
-                  form.setFieldsValue({
-                    image: value,
-                    vmorcontainer:
-                      imageFound?.vmorcontainer[0] ?? EnvironmentType.Container,
-                  });
+                    }));
+                    form.setFieldsValue({
+                      image: value,
+                      vmorcontainer:
+                        imageFound?.vmorcontainer[0] ?? EnvironmentType.Container,
+                    });
+                  }
                 }
               }}
               placeholder="Select an image"
             />
           </Form.Item>
 
-          <div className="mt-3">
+          {isPersonal && isExternalImage && (
+            <Form.Item
+              className="mb-4"
+              name="registry"
+              required
+              rules={[
+                { required: true, message: 'Please enter the container image' },
+                {
+                  pattern: /^([a-z0-9]+([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]+([-a-z0-9]*[a-z0-9])?)*(\/[a-z0-9]+([-a-z0-9]*[a-z0-9])?)*)(:[a-z0-9]+)?$/,
+                  message: 'Please enter a valid container image name',
+                },
+              ]}
+            >
+              <Input
+                value={formTemplate.registry}
+                onChange={e =>
+                  setFormTemplate(old => ({
+                    ...old,
+                    registry: e.target.value,
+                  }))
+                }
+                placeholder="docker.io/library/ubuntu:22.04"
+              />
+            </Form.Item>
+          )}
+
+          <Form.Item className="mb-4">
             <span>GUI:</span>
             <Checkbox
               className="ml-3"
@@ -368,8 +411,8 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
                 })
               }
             />
-          </div>
-          <div className="mr-1 mt-3">
+          </Form.Item>
+          <Form.Item className="mb-4">
             <span>Persistent: </span>
             <Tooltip title="A persistent VM/container disk space won't be destroyed after being turned off.">
               <Checkbox
@@ -388,7 +431,7 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
                 }
               />
             </Tooltip>
-          </div>
+          </Form.Item>
         </div>
 
         <Form.Item labelAlign="left" className="mt-10" label="CPU" name="cpu">
