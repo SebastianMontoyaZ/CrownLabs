@@ -30,21 +30,27 @@ import { TemplatesTable } from '../TemplatesTable';
 import { SharedVolumesDrawer } from '../../SharedVolumes';
 import { AuthContext } from '../../../../contexts/AuthContext';
 import { TenantContext } from '../../../../contexts/TenantContext';
+import QuotaDisplay from '../../QuotaDisplay/QuotaDisplay';
 
 export interface ITemplateTableLogicProps {
   tenantNamespace: string;
   workspaceNamespace: string;
   workspaceName: string;
   role: WorkspaceRole;
+  workspaceQuota: {
+    cpu?: string | number;
+    memory?: string;
+    instances?: number;
+  };
+  isPersonal?: boolean;
 }
 
 const fetchPolicy_networkOnly: FetchPolicy = 'network-only';
-
 const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
   const { userId } = useContext(AuthContext);
   const { makeErrorCatcher, apolloErrorCatcher, errorsQueue } =
     useContext(ErrorContext);
-  const { tenantNamespace, workspaceNamespace, workspaceName, role } = props;
+  const { tenantNamespace, workspaceNamespace, workspaceName, role, workspaceQuota, isPersonal } = props;
 
   const [dataInstances, setDataInstances] = useState<Instance[]>([]);
 
@@ -206,51 +212,64 @@ const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
   );
 
   return (
-    <Spin size="large" spinning={loadingTemplate || loadingInstances}>
-      {!loadingTemplate &&
-      !loadingInstances &&
-      !errorTemplate &&
-      !errorInstances &&
-      templates &&
-      dataInstances ? (
-        <TemplatesTable
-          totalInstances={dataInstances.length}
+    <>
+      {isPersonal && (
+        <QuotaDisplay
           tenantNamespace={tenantNamespace}
-          workspaceNamespace={workspaceNamespace}
           templates={templates}
-          role={role}
-          deleteTemplate={(templateId: string) =>
-            deleteTemplateMutation({
-              variables: {
-                workspaceNamespace,
-                templateId,
-              },
-            })
-          }
-          deleteTemplateLoading={loadingDeleteTemplateMutation}
-          editTemplate={() => null}
-          createInstance={createInstance}
+          instances={dataInstances}
+          workspaceQuota={workspaceQuota}
         />
-      ) : (
-        <div
-          className={
-            loadingTemplate ||
-            loadingInstances ||
-            errorTemplate ||
-            errorInstances
-              ? 'invisible'
-              : 'visible'
-          }
-        >
-          <TemplatesEmpty role={role} />
-        </div>
       )}
-      {role === WorkspaceRole.manager &&
-      !loadingTemplate &&
-      !loadingInstances ? (
-        <SharedVolumesDrawer workspaceNamespace={workspaceNamespace} />
-      ) : null}
-    </Spin>
+      <Spin size="large" spinning={loadingTemplate || loadingInstances}>
+        {!loadingTemplate &&
+        !loadingInstances &&
+        !errorTemplate &&
+        !errorInstances &&
+        templates &&
+        dataInstances ? (
+          <TemplatesTable
+            totalInstances={dataInstances.length}
+            tenantNamespace={tenantNamespace}
+            workspaceNamespace={workspaceNamespace}
+            workspaceName={workspaceName}
+            templates={templates}
+            role={role}
+            deleteTemplate={(templateId: string) =>
+              deleteTemplateMutation({
+                variables: {
+                  workspaceNamespace,
+                  templateId,
+                },
+              })
+            }
+            deleteTemplateLoading={loadingDeleteTemplateMutation}
+            editTemplate={() => null}
+            createInstance={createInstance}
+            workspaceQuota={workspaceQuota}
+            isPersonal={isPersonal}
+          />
+        ) : (
+          <div
+            className={
+              loadingTemplate ||
+              loadingInstances ||
+              errorTemplate ||
+              errorInstances
+                ? 'invisible'
+                : 'visible'
+            }
+          >
+            <TemplatesEmpty role={role} />
+          </div>
+        )}
+        {role === WorkspaceRole.manager &&
+        !loadingTemplate &&
+        !loadingInstances ? (
+          <SharedVolumesDrawer workspaceNamespace={workspaceNamespace} />
+        ) : null}
+      </Spin>
+    </>
   );
 };
 

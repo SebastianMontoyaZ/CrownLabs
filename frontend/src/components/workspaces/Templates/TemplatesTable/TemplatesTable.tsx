@@ -20,6 +20,7 @@ export interface ITemplatesTableProps {
   totalInstances: number;
   tenantNamespace: string;
   workspaceNamespace: string;
+  workspaceName: string;
   templates: Array<Template>;
   role: WorkspaceRole;
   editTemplate: (id: string) => void;
@@ -54,6 +55,10 @@ const TemplatesTable: FC<ITemplatesTableProps> = ({ ...props }) => {
     deleteTemplate,
     deleteTemplateLoading,
     createInstance,
+    workspaceNamespace,
+    workspaceName,
+    workspaceQuota,
+    isPersonal,
   } = props;
 
   const { hasSSHKeys } = useContext(TenantContext);
@@ -75,6 +80,11 @@ const TemplatesTable: FC<ITemplatesTableProps> = ({ ...props }) => {
           deleteTemplateLoading={deleteTemplateLoading}
           createInstance={createInstance}
           expandRow={listToggler}
+          workspaceNamespace={workspaceNamespace}
+          workspaceName={workspaceName}
+          templates={templates} // Pass all templates
+          workspaceQuota={workspaceQuota}
+          isPersonal={isPersonal}
         />
       ),
     },
