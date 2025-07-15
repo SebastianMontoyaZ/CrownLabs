@@ -3224,9 +3224,7 @@ export type TenantsQueryVariables = Exact<{
 
 export type TenantsQuery = { __typename?: 'Query', tenants?: { __typename?: 'ItPolitoCrownlabsV1alpha2TenantList', items: Array<{ __typename?: 'ItPolitoCrownlabsV1alpha2Tenant', metadata?: { __typename?: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta', name?: string | null } | null, spec?: { __typename?: 'Spec7', firstName: string, lastName: string, email: string, workspaces?: Array<{ __typename?: 'WorkspacesListItem', role: Role, name: string } | null> | null } | null } | null> } | null };
 
-export type WorkspaceQuotasQueryVariables = Exact<{
-  names?: InputMaybe<Array<Scalars['String']['input']> | Scalars['String']['input']>;
-}>;
+export type WorkspaceQuotasQueryVariables = Exact<{ [key: string]: never; }>;
 
 
 export type WorkspaceQuotasQuery = { __typename?: 'Query', workspaces?: { __typename?: 'ItPolitoCrownlabsV1alpha1WorkspaceList', items: Array<{ __typename?: 'ItPolitoCrownlabsV1alpha1Workspace', metadata?: { __typename?: 'IoK8sApimachineryPkgApisMetaV1ObjectMeta', name?: string | null } | null, spec?: { __typename?: 'Spec2', prettyName: string, quota: { __typename?: 'Quota', cpu: any, memory: any, instances: number } } | null } | null> } | null };
@@ -4316,7 +4314,7 @@ export type TenantsLazyQueryHookResult = ReturnType<typeof useTenantsLazyQuery>;
 export type TenantsSuspenseQueryHookResult = ReturnType<typeof useTenantsSuspenseQuery>;
 export type TenantsQueryResult = Apollo.QueryResult<TenantsQuery, TenantsQueryVariables>;
 export const WorkspaceQuotasDocument = gql`
-    query workspaceQuotas($names: [String!]) {
+    query workspaceQuotas {
   workspaces: itPolitoCrownlabsV1alpha1WorkspaceList {
     items {
       metadata {
@@ -4347,7 +4345,6 @@ export const WorkspaceQuotasDocument = gql`
  * @example
  * const { data, loading, error } = useWorkspaceQuotasQuery({
  *   variables: {
- *      names: // value for 'names'
  *   },
  * });
  */

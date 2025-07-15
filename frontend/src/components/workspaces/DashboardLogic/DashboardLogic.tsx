@@ -21,18 +21,21 @@ const dashboard = new LocalValue(StorageKeys.Dashboard_LoadCandidates, 'false');
 const DashboardLogic: FC = () => {
   const { apolloErrorCatcher } = useContext(ErrorContext);
 
-  const { data: quotasData, loading: quotasLoading, error: quotasError } = useWorkspaceQuotasQuery();
+  const { data: quotasData } = useWorkspaceQuotasQuery();
 
   const workspaceQuotas = useMemo(() => {
     // Map workspace name to quota for easy lookup
-    const map: Record<string, { cpu: any; memory: any; instances: number }> = {};
+    const map: Record<
+      string,
+      { cpu: string | number; memory: string; instances: number }
+    > = {};
     quotasData?.workspaces?.items?.forEach(ws => {
       if (ws?.metadata?.name && ws?.spec?.quota) {
         map[ws.metadata.name] = ws.spec.quota;
       }
     });
     return map;
-  }, [quotasData]); 
+  }, [quotasData]);
 
   const {
     data: tenantData,
@@ -40,19 +43,14 @@ const DashboardLogic: FC = () => {
     loading: tenantLoading,
   } = useContext(TenantContext);
 
+  // revert to original, enrich after the workspaces are loaded instead
   const ws = useMemo(() => {
-    const baseWorkspaces =
+    return (
       tenantData?.tenant?.spec?.workspaces
         ?.filter(w => w?.role !== Role.Candidate)
-        ?.map(makeWorkspace) ?? [];
-
-    // Enrich each workspace with its quota, if available
-    return baseWorkspaces.map(w => ({
-      ...w,
-      quota: workspaceQuotas[w.name], // append quota by workspace name
-    }));
-    // Add workspaceQuotas as a dependency
-  }, [tenantData?.tenant?.spec?.workspaces, workspaceQuotas]);
+        ?.map(makeWorkspace) ?? []
+    );
+  }, [tenantData?.tenant?.spec?.workspaces]);
 
   const [viewWs, setViewWs] = useState<Workspace[]>(ws);
   const client = useApolloClient();
@@ -80,8 +78,13 @@ const DashboardLogic: FC = () => {
     [workspaceQueryData?.workspaces?.items],
   );
 
-
-  console.log('workspaceQuotas:', ws);
+  //enrich workspaces with quotas
+  useEffect(() => {
+    viewWs.forEach(w => {
+      w.quota = workspaceQuotas[w.name];
+    });
+  }, [viewWs, workspaceQuotas]);
+  console.log('workspaces ', viewWs);
 
   useEffect(() => {
     if (loadCandidates) {

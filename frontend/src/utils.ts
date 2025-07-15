@@ -17,6 +17,11 @@ export type Workspace = {
   role: WorkspaceRole;
   templates?: Array<Template>;
   waitingTenants?: number;
+  quota?: {
+    cpu: string | number;
+    memory: string;
+    instances: number;
+  };
 };
 export type Resources = {
   cpu: number;
