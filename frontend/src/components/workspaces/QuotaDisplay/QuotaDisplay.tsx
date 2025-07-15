@@ -16,7 +16,7 @@ export interface IQuotaDisplayProps {
   tenantNamespace: string;
   instances: Instance[];
   templates: (Template & { instances: Instance[] })[]; // type of merged instances and templates
-  workspaceQuota: WorkspaceQuota;
+  workspaceQuota?: WorkspaceQuota;
 }
 
 // Helper function to parse memory string (e.g., "4Gi" -> 4)

@@ -17,7 +17,11 @@ import {
   updatedOwnedInstances,
   updatedWorkspaceTemplates,
 } from '../../../../graphql-components/subscription';
-import { type Instance, WorkspaceRole } from '../../../../utils';
+import {
+  type Instance,
+  type WorkspaceQuota,
+  WorkspaceRole,
+} from '../../../../utils';
 import { ErrorTypes } from '../../../../errorHandling/utils';
 import {
   makeGuiInstance,
@@ -37,12 +41,8 @@ export interface ITemplateTableLogicProps {
   workspaceNamespace: string;
   workspaceName: string;
   role: WorkspaceRole;
-  workspaceQuota: {
-    cpu?: string | number;
-    memory?: string;
-    instances?: number;
-  };
-  isPersonal?: boolean;
+  workspaceQuota?: WorkspaceQuota;
+  isPersonal: boolean;
 }
 
 const fetchPolicy_networkOnly: FetchPolicy = 'network-only';
@@ -50,7 +50,14 @@ const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
   const { userId } = useContext(AuthContext);
   const { makeErrorCatcher, apolloErrorCatcher, errorsQueue } =
     useContext(ErrorContext);
-  const { tenantNamespace, workspaceNamespace, workspaceName, role, workspaceQuota, isPersonal } = props;
+  const {
+    tenantNamespace,
+    workspaceNamespace,
+    workspaceName,
+    role,
+    workspaceQuota,
+    isPersonal,
+  } = props;
 
   const [dataInstances, setDataInstances] = useState<Instance[]>([]);
 

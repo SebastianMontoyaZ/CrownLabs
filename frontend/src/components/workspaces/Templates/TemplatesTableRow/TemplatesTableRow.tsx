@@ -41,7 +41,7 @@ export interface ITemplatesTableRowProps {
   role: WorkspaceRole;
   totalInstances: number;
   templates: Array<Template>;
-  workspaceQuota: WorkspaceQuota;
+  workspaceQuota?: WorkspaceQuota;
   isPersonal: boolean;
   editTemplate: (id: string) => void;
   deleteTemplate: (

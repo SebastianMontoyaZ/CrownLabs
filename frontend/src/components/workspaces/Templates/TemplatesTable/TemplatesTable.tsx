@@ -22,7 +22,7 @@ export interface ITemplatesTableProps {
   workspaceNamespace: string;
   workspaceName: string;
   templates: Array<Template>;
-  workspaceQuota: WorkspaceQuota;
+  workspaceQuota?: WorkspaceQuota;
   isPersonal: boolean;
   role: WorkspaceRole;
   editTemplate: (id: string) => void;
