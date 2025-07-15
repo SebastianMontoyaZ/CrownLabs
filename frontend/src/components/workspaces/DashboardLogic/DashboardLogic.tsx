@@ -48,13 +48,11 @@ const DashboardLogic: FC = () => {
       tenantData?.tenant?.spec?.workspaces
         ?.filter(w => w?.role !== Role.Candidate)
         ?.map(makeWorkspace) ?? [];
-
-    // Enrich each workspace with its quota, if available
-    return baseWorkspaces.map(w => ({
+    const workspacesWithQuotas = baseWorkspaces.map(w => ({
       ...w,
-      quota: workspaceQuotas[w.name], // append quota by workspace name
+      quota: workspaceQuotas[w.name],
     }));
-    // Add workspaceQuotas as a dependency
+    return workspacesWithQuotas;
   }, [tenantData?.tenant?.spec?.workspaces, workspaceQuotas]);
 
   const [viewWs, setViewWs] = useState<Workspace[]>(ws);
@@ -82,8 +80,6 @@ const DashboardLogic: FC = () => {
     },
     [workspaceQueryData?.workspaces?.items],
   );
-
-  console.log('workspaceQuotas:', ws);
 
   useEffect(() => {
     if (loadCandidates) {
@@ -120,6 +116,8 @@ const DashboardLogic: FC = () => {
             executeNext();
           }
         });
+    } else {
+      setViewWs(ws);
     }
   }, [
     client,
