@@ -8,7 +8,7 @@ import type {
   DeleteTemplateMutation,
 } from '../../../../generated-types';
 import { TenantContext } from '../../../../contexts/TenantContext';
-import type { Template } from '../../../../utils';
+import type { Template, WorkspaceQuota } from '../../../../utils';
 import { makeListToggler, WorkspaceRole } from '../../../../utils';
 import { SessionValue, StorageKeys } from '../../../../utilsStorage';
 import TableInstance from '../../../activePage/TableInstance/TableInstance';
@@ -22,6 +22,8 @@ export interface ITemplatesTableProps {
   workspaceNamespace: string;
   workspaceName: string;
   templates: Array<Template>;
+  workspaceQuota?: WorkspaceQuota;
+  isPersonal: boolean;
   role: WorkspaceRole;
   editTemplate: (id: string) => void;
   deleteTemplate: (
@@ -55,8 +57,6 @@ const TemplatesTable: FC<ITemplatesTableProps> = ({ ...props }) => {
     deleteTemplate,
     deleteTemplateLoading,
     createInstance,
-    workspaceNamespace,
-    workspaceName,
     workspaceQuota,
     isPersonal,
   } = props;
@@ -80,8 +80,6 @@ const TemplatesTable: FC<ITemplatesTableProps> = ({ ...props }) => {
           deleteTemplateLoading={deleteTemplateLoading}
           createInstance={createInstance}
           expandRow={listToggler}
-          workspaceNamespace={workspaceNamespace}
-          workspaceName={workspaceName}
           templates={templates} // Pass all templates
           workspaceQuota={workspaceQuota}
           isPersonal={isPersonal}

@@ -13,6 +13,7 @@ import { ErrorContext } from '../../../../errorHandling/ErrorContext';
 import type {
   CreateInstanceMutation,
   DeleteTemplateMutation,
+  ImagesQuery,
 } from '../../../../generated-types';
 import {
   useInstancesLabelSelectorQuery,
@@ -20,18 +21,28 @@ import {
 } from '../../../../generated-types';
 import { JSONDeepCopy } from '../../../../utils';
 import { TenantContext } from '../../../../contexts/TenantContext';
-import type { Template } from '../../../../utils';
+import type { Template, WorkspaceQuota } from '../../../../utils';
 import { cleanupLabels, WorkspaceRole } from '../../../../utils';
 import { ModalAlert } from '../../../common/ModalAlert';
 import { TemplatesTableRowSettings } from '../TemplatesTableRowSettings';
 import NodeSelectorIcon from '../../../common/NodeSelectorIcon/NodeSelectorIcon';
-import ModalCreateTemplate, { Template as TemplateType } from '../../ModalCreateTemplate/ModalCreateTemplate';
-import { useApplyTemplateMutation, useImagesQuery, EnvironmentType } from '../../../../generated-types'; // <-- Use the correct hook
+import ModalCreateTemplate, {
+  type Image,
+  type Template as TemplateType,
+} from '../../ModalCreateTemplate/ModalCreateTemplate';
+import {
+  useApplyTemplateMutation,
+  useImagesQuery,
+  EnvironmentType,
+} from '../../../../generated-types'; // <-- Use the correct hook
 
 export interface ITemplatesTableRowProps {
   template: Template;
   role: WorkspaceRole;
   totalInstances: number;
+  templates: Array<Template>;
+  workspaceQuota?: WorkspaceQuota;
+  isPersonal: boolean;
   editTemplate: (id: string) => void;
   deleteTemplate: (
     id: string,
@@ -95,19 +106,23 @@ const getImages = (dataImages: ImagesQuery) => {
   return images;
 };
 
-const canCreateInstance = (template: Template, allTemplates: Template[], workspaceQuota?: {
-  cpu?: string | number;
-  memory?: string;
-  instances?: number;
-}): boolean => {
+const canCreateInstance = (
+  template: Template,
+  allTemplates: Template[],
+  workspaceQuota?: {
+    cpu?: string | number;
+    memory?: string;
+    instances?: number;
+  },
+): boolean => {
   // If no quota defined, default to allowing creation
   if (!workspaceQuota) return true;
-  
+
   // Calculate current usage (similar to QuotaDisplay)
   let usedCpu = 0;
   let usedMemory = 0;
   let runningInstances = 0;
-  
+
   // Sum resources from all running instances
   allTemplates.forEach(tmpl => {
     const count = tmpl.instances?.length || 0;
@@ -117,21 +132,21 @@ const canCreateInstance = (template: Template, allTemplates: Template[], workspa
       usedMemory += parseMemory(tmpl.resources.memory || '0') * count;
     }
   });
-  
+
   // Get the quota limits (with defaults)
   const quotaLimits = {
     cpu: workspaceQuota?.cpu ? parseInt(String(workspaceQuota.cpu)) : 8,
     memory: workspaceQuota?.memory ? parseMemory(workspaceQuota.memory) : 16,
     instances: workspaceQuota?.instances || 8,
   };
-  
+
   // Add the new instance's resource requirements
   const newUsage = {
     cpu: usedCpu + (template.resources?.cpu || 0),
     memory: usedMemory + parseMemory(template.resources?.memory || '0'),
     instances: runningInstances + 1,
   };
-  
+
   // Check if any quota would be exceeded
   return (
     newUsage.cpu <= quotaLimits.cpu &&
@@ -175,18 +190,18 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
     role,
     totalInstances,
     createInstance,
-    editTemplate,
+    // editTemplate, // unused
     deleteTemplate,
     deleteTemplateLoading,
     expandRow,
-    templates,  // All templates in the workspace
+    templates, // All templates in the workspace
     workspaceQuota, // Add this to props
     isPersonal,
   } = props;
 
   // Check if we can create an instance based on resources
   const canCreate = canCreateInstance(template, templates, workspaceQuota);
-  
+
   const {
     data: labelsData,
     loading: loadingLabels,
@@ -211,11 +226,14 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
   const [createDisabled, setCreateDisabled] = useState(false);
 
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateType | undefined>(undefined);
+  const [selectedTemplate, setSelectedTemplate] = useState<
+    TemplateType | undefined
+  >(undefined);
 
-  const [applyTemplateMutation, { loading: updateLoading }] = useApplyTemplateMutation({
-    onError: apolloErrorCatcher,
-  });
+  const [applyTemplateMutation, { loading: updateLoading }] =
+    useApplyTemplateMutation({
+      onError: apolloErrorCatcher,
+    });
 
   const createInstanceHandler = useCallback(() => {
     setCreateDisabled(true);
@@ -239,7 +257,7 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
     const patch = {
       spec: {
         prettyName: updatedTemplate.name,
-        description: updatedTemplate.description ?? '', // Add description if needed
+        // description: updatedTemplate.description ?? '', // Add description if needed
         environmentList: [
           {
             name: updatedTemplate.name,
@@ -251,16 +269,20 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
             resources: {
               cpu: updatedTemplate.cpu,
               memory: `${updatedTemplate.ram}Gi`,
-              disk: updatedTemplate.persistent ? `${updatedTemplate.disk}Gi` : undefined,
+              disk: updatedTemplate.persistent
+                ? `${updatedTemplate.disk}Gi`
+                : undefined,
             },
-            sharedVolumeMounts: updatedTemplate.sharedVolumeMountInfos?.map(sv => ({
-              sharedVolume: {
-                namespace: sv.sharedVolume.namespace,
-                name: sv.sharedVolume.name,
-              },
-              mountPath: sv.mountPath,
-              readOnly: sv.readOnly,
-            })),
+            sharedVolumeMounts: updatedTemplate.sharedVolumeMountInfos?.map(
+              sv => ({
+                sharedVolume: {
+                  namespace: sv.sharedVolume.namespace,
+                  name: sv.sharedVolume.name,
+                },
+                mountPath: sv.mountPath,
+                readOnly: sv.readOnly,
+              }),
+            ),
           },
         ],
         workspaceCrownlabsPolitoItWorkspaceRef: {
@@ -282,7 +304,7 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
 
   const instancesLimit = data?.tenant?.status?.quota?.instances ?? 1;
 
-  const { data: dataImages, refetch: refetchImages } = useImagesQuery({
+  const { data: dataImages } = useImagesQuery({
     variables: {},
     onError: apolloErrorCatcher,
   });
@@ -345,7 +367,7 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
         show={showEditModal}
         setShow={setShowEditModal}
         template={selectedTemplate}
-        images={getImages(dataImages)} 
+        images={dataImages ? getImages(dataImages) : []}
         cpuInterval={{ min: 1, max: 8 }} // <-- Pass actual intervals
         ramInterval={{ min: 1, max: 32 }}
         diskInterval={{ min: 10, max: 100 }}
@@ -475,7 +497,10 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
                       </>
                     ) : (
                       <>
-                        <div>You have <b>reached your limit</b> of {instancesLimit} instances</div>
+                        <div>
+                          You have <b>reached your limit</b> of {instancesLimit}{' '}
+                          instances
+                        </div>
                         <div className="text-center mt-2">
                           Please <b>delete</b> an instance to create a new one
                         </div>
@@ -489,7 +514,11 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
                 <Button
                   onClick={createInstanceHandler}
                   className="hidden xs:block pointer-events-none"
-                  disabled={totalInstances === instancesLimit || createDisabled || !canCreate}
+                  disabled={
+                    totalInstances === instancesLimit ||
+                    createDisabled ||
+                    !canCreate
+                  }
                   type="primary"
                   shape="round"
                   size={'middle'}
@@ -529,7 +558,11 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
                       })) || [],
               }}
               onClick={createInstanceHandler}
-              disabled={totalInstances === instancesLimit || createDisabled || !canCreate}
+              disabled={
+                totalInstances === instancesLimit ||
+                createDisabled ||
+                !canCreate
+              }
               type="primary"
               size={'middle'}
             >
@@ -539,7 +572,11 @@ const TemplatesTableRow: FC<ITemplatesTableRowProps> = ({ ...props }) => {
             <Button
               onClick={createInstanceHandler}
               className="hidden xs:block"
-              disabled={totalInstances === instancesLimit || createDisabled || !canCreate}
+              disabled={
+                totalInstances === instancesLimit ||
+                createDisabled ||
+                !canCreate
+              }
               type="primary"
               shape="round"
               size={'middle'}
