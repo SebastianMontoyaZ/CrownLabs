@@ -144,13 +144,6 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	// tenant is NOT being deleted
 	klog.Infof("Reconciling tenant %s", tn.Name)
 
-	// enforce personal workspace
-	// before other operations on the tenant resource as we make changes to the spec that might be used in other future operations
-	if err := r.handlePersonalWorkspaceEnforcement(ctx, &tn); err != nil {
-		klog.Errorf("Error when enforcing personal workspace for tenant %s -> %s", tn.Name, err)
-		retrigErr = err
-	}
-
 	// convert the email to lower-case, to prevent issues with keycloak
 	// This modification is not persisted (on purpose) in the tenant resource, since the
 	// update is performed after an update of the status, which restores the original spec.
@@ -212,6 +205,13 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		klog.Errorf("Failed checking sandbox for tenant %s -> %s", tn.Name, err)
 		tn.Status.SandboxNamespace.Created = false
 		tnOpinternalErrors.WithLabelValues("tenant", "sandbox-resources").Inc()
+		return ctrl.Result{}, err
+	}
+
+	if err = r.handlePersonalWorkspaceRoleBindings(ctx, &tn); err != nil {
+		klog.Errorf("Error when updating personal workspace role bindings for tenant %s -> %s", tn.Name, err)
+		tn.Status.PersonalWorkspace.Created = false
+		tnOpinternalErrors.WithLabelValues("tenant", "personal-workspace").Inc()
 		return ctrl.Result{}, err
 	}
 
@@ -290,12 +290,6 @@ func (r *TenantReconciler) handleDeletion(ctx context.Context, tnName string) er
 				retErr = err
 			}
 		}
-	}
-	// delete personal workspace
-	if err := r.handlePersonalWorkspaceTenantDeletion(ctx, tnName); err != nil {
-		klog.Errorf("Error when deleting personal workspace for tenant %s -> %s", tnName, err)
-		tnOpinternalErrors.WithLabelValues("tenant", "personal-workspace").Inc()
-		retErr = err
 	}
 	return retErr
 }
