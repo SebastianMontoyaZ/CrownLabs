@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"strings"
 
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	crownlabsv1alpha1 "github.com/netgroup-polito/CrownLabs/operators/api/v1alpha1"
 	crownlabsv1alpha2 "github.com/netgroup-polito/CrownLabs/operators/api/v1alpha2"
+	"github.com/netgroup-polito/CrownLabs/operators/pkg/utils"
 )
 
 // checkPersonalWorkspaceExists checks if the personal workspace exists
@@ -223,4 +226,37 @@ func getTenantPersonalWorkspaceIndex(tn *crownlabsv1alpha2.Tenant) int {
 		}
 	}
 	return -1
+}
+func (r *TenantReconciler) handlePersonalWorkspaceRoleBindings(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
+	createPWs := tn.Spec.CreatePersonalWorkspace
+	if !tn.Status.PersonalNamespace.Created {
+		return nil 	// if the personal namespace is not created, skip everything
+	}
+	manageTemplatesRB := generateManageTemplatesRoleBinding(tn.Name, tn.Status.PersonalNamespace.Name)
+	if  createPWs {
+		res, err := ctrl.CreateOrUpdate(ctx, r.Client, &manageTemplatesRB, func() error {
+			return ctrl.SetControllerReference(tn, &manageTemplatesRB, r.Scheme)
+		})
+		if err != nil {
+			return err
+		}
+		klog.Infof("RoleBinding for tenant %s %s", tn.Name, res)
+		tn.Status.PersonalWorkspace.Created = true
+	} else {
+		tn.Status.PersonalWorkspace.Created = false
+		if err := utils.EnforceObjectAbsence(ctx, r.Client, &manageTemplatesRB, "personal workspace role binding"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func generateManageTemplatesRoleBinding(name string, namespace string) rbacv1.RoleBinding {
+	rb := rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{
+		Name:      "crownlabs-view-templates",
+		Namespace: namespace,
+	}}
+	rb.RoleRef = rbacv1.RoleRef{Kind: "ClusterRole", Name: "crownlabs-manage-templates", APIGroup: "rbac.authorization.k8s.io"}
+	rb.Subjects = []rbacv1.Subject{{Kind: "User", Name: name, APIGroup: "rbac.authorization.k8s.io"}}
+	return rb
 }
