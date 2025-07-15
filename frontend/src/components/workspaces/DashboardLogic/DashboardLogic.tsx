@@ -43,14 +43,19 @@ const DashboardLogic: FC = () => {
     loading: tenantLoading,
   } = useContext(TenantContext);
 
-  // revert to original, enrich after the workspaces are loaded instead
   const ws = useMemo(() => {
-    return (
+    const baseWorkspaces =
       tenantData?.tenant?.spec?.workspaces
         ?.filter(w => w?.role !== Role.Candidate)
-        ?.map(makeWorkspace) ?? []
-    );
-  }, [tenantData?.tenant?.spec?.workspaces]);
+        ?.map(makeWorkspace) ?? [];
+
+    // Enrich each workspace with its quota, if available
+    return baseWorkspaces.map(w => ({
+      ...w,
+      quota: workspaceQuotas[w.name], // append quota by workspace name
+    }));
+    // Add workspaceQuotas as a dependency
+  }, [tenantData?.tenant?.spec?.workspaces, workspaceQuotas]);
 
   const [viewWs, setViewWs] = useState<Workspace[]>(ws);
   const client = useApolloClient();
@@ -78,13 +83,7 @@ const DashboardLogic: FC = () => {
     [workspaceQueryData?.workspaces?.items],
   );
 
-  //enrich workspaces with quotas
-  useEffect(() => {
-    viewWs.forEach(w => {
-      w.quota = workspaceQuotas[w.name];
-    });
-  }, [viewWs, workspaceQuotas]);
-  console.log('workspaces ', viewWs);
+  console.log('workspaceQuotas:', ws);
 
   useEffect(() => {
     if (loadCandidates) {
