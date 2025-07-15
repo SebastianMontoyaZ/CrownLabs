@@ -10,7 +10,7 @@ import {
   useWorkspacesQuery,
   useWorkspaceQuotasQuery,
 } from '../../../generated-types';
-import type { Workspace } from '../../../utils';
+import type { Workspace, WorkspaceQuota } from '../../../utils';
 import { WorkspaceRole } from '../../../utils';
 import { useApolloClient } from '@apollo/client';
 import { ErrorContext } from '../../../errorHandling/ErrorContext';
@@ -25,10 +25,7 @@ const DashboardLogic: FC = () => {
 
   const workspaceQuotas = useMemo(() => {
     // Map workspace name to quota for easy lookup
-    const map: Record<
-      string,
-      { cpu: string | number; memory: string; instances: number }
-    > = {};
+    const map: Record<string, WorkspaceQuota> = {};
     quotasData?.workspaces?.items?.forEach(ws => {
       if (ws?.metadata?.name && ws?.spec?.quota) {
         map[ws.metadata.name] = ws.spec.quota;

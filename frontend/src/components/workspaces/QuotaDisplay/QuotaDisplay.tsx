@@ -8,7 +8,7 @@ import {
 import type { FC } from 'react';
 import { useMemo } from 'react';
 import './QuotaDisplay.less';
-import type { Instance, Template } from '../../../utils';
+import type { Instance, Template, WorkspaceQuota } from '../../../utils';
 
 const { Text, Title } = Typography;
 
@@ -16,11 +16,7 @@ export interface IQuotaDisplayProps {
   tenantNamespace: string;
   instances: Instance[];
   templates: (Template & { instances: Instance[] })[]; // type of merged instances and templates
-  workspaceQuota: {
-    cpu?: string | number;
-    memory?: string;
-    instances?: number;
-  };
+  workspaceQuota: WorkspaceQuota;
 }
 
 // Helper function to parse memory string (e.g., "4Gi" -> 4)
