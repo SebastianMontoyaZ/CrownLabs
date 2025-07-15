@@ -6,17 +6,16 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 import type { FC } from 'react';
-import { useContext, useMemo } from 'react';
-import { TenantContext } from '../../../contexts/TenantContext';
-import { ItPolitoCrownlabsV1alpha2Instance } from '../../../generated-types';
+import { useMemo } from 'react';
 import './QuotaDisplay.less';
+import type { Instance, Template } from '../../../utils';
 
 const { Text, Title } = Typography;
 
 export interface IQuotaDisplayProps {
   tenantNamespace: string;
-  instances: ItPolitoCrownlabsV1alpha2Instance[];
-  templates: any[]; // keep as is
+  instances: Instance[];
+  templates: (Template & { instances: Instance[] })[]; // type of merged instances and templates
   workspaceQuota: {
     cpu?: string | number;
     memory?: string;
@@ -53,12 +52,8 @@ const parseMemory = (memoryStr: string): number => {
   }
 };
 
-const QuotaDisplay: FC<IQuotaDisplayProps> = ({
-  tenantNamespace,
-  templates,
-  instances,
-  workspaceQuota,
-}) => {
+const QuotaDisplay: FC<IQuotaDisplayProps> = ({ ...props }) => {
+  const { templates, workspaceQuota } = props;
   // Use workspaceQuota directly
   const quota = workspaceQuota;
 
@@ -86,7 +81,7 @@ const QuotaDisplay: FC<IQuotaDisplayProps> = ({
 
   // Quota limits with defaults
   const quotaLimits = {
-    cpu: quota?.cpu ? parseInt(quota.cpu) : 8,
+    cpu: quota?.cpu ? parseInt(quota.cpu.toString()) : 8,
     memory: quota?.memory ? parseMemory(quota.memory) : 16,
     instances: quota?.instances || 8,
   };
@@ -94,10 +89,10 @@ const QuotaDisplay: FC<IQuotaDisplayProps> = ({
   // Calculate percentages
   const cpuPercent = Math.round((currentUsage.cpu / quotaLimits.cpu) * 100);
   const memoryPercent = Math.round(
-    (currentUsage.memory / quotaLimits.memory) * 100
+    (currentUsage.memory / quotaLimits.memory) * 100,
   );
   const instancesPercent = Math.round(
-    (currentUsage.instances / quotaLimits.instances) * 100
+    (currentUsage.instances / quotaLimits.instances) * 100,
   );
 
   const getProgressColor = (percent: number) => {
