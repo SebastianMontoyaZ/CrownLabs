@@ -107,7 +107,8 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
 
   const isPersonalWorkspace = (
     workspaceName: string,
-    tenantNamespace: string
+    tenantNamespace: string,
+    workspaceNamespace: string,
   ): boolean => {
     return (
       workspaceName.includes('personal') ||
@@ -116,7 +117,11 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
     );
   };
 
-  const isPersonal = isPersonalWorkspace(workspace.name, tenantNamespace);
+  const isPersonal = isPersonalWorkspace(
+    workspace.name,
+    tenantNamespace,
+    workspace.namespace,
+  );
 
   return (
     <>
