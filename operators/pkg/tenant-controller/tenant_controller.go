@@ -79,9 +79,6 @@ type TenantReconciler struct {
 	RequeueTimeMaximum          time.Duration
 	TenantNSKeepAlive           time.Duration
 	BaseWorkspaces              []string
-	PWsDefaultCPU               string
-	PWsDefaultMemory            string
-	PWsDefaultInstances         int
 
 	// This function, if configured, is deferred at the beginning of the Reconcile.
 	// Specifically, it is meant to be set to GinkgoRecover during the tests,
@@ -358,14 +355,24 @@ func (r *TenantReconciler) checkNamespaceKeepAlive(ctx context.Context, tn *crow
 	if err := r.List(ctx, list, client.InNamespace(nsName)); err != nil {
 		return true, err
 	}
+	// Attempt to get templates in current namespace
+	templateList := &crownlabsv1alpha2.TemplateList{}
+	if err := r.List(ctx, templateList, client.InNamespace(nsName)); err != nil {
+		return true, err
+	}
 
 	if sPassed > r.TenantNSKeepAlive { // seconds
 		klog.Infof("Over %s elapsed since last login of tenant %s: tenant namespace shall be absent", r.TenantNSKeepAlive, tn.Name)
-		if len(list.Items) == 0 {
-			klog.Infof("No instances found in %s: namespace can be deleted", nsName)
-			return false, nil
+		if len(list.Items) > 0 {
+			klog.Infof("Instances found in namespace %s. Namespace will not be deleted", nsName)
+			return true, nil
 		}
-		klog.Infof("Instances found in namespace %s. Namespace will not be deleted", nsName)
+		if len(templateList.Items) > 0 {
+			klog.Infof("Templates found in namespace %s. Namespace will not be deleted", nsName)
+			return true, nil
+		}
+		klog.Infof("No instances or templates found in %s: namespace can be deleted", nsName)
+		return false, nil
 	} else {
 		klog.Infof("Under %s (limit) elapsed since last login of tenant %s: tenant namespace shall be present", r.TenantNSKeepAlive, tn.Name)
 	}
