@@ -19,7 +19,10 @@ func (r *TenantReconciler) handlePersonalWorkspaceRoleBindings(ctx context.Conte
 		tn.Status.PersonalWorkspace.Created = false
 		return nil
 	}
-	manageTemplatesRB := generateManageTemplatesRoleBinding(tn.Name, tn.Status.PersonalNamespace.Name)
+	inheritedLabels := map[string]string{
+		r.TargetLabelKey : r.TargetLabelValue,
+	}
+	manageTemplatesRB := generateManageTemplatesRoleBinding(tn.Name, tn.Status.PersonalNamespace.Name, inheritedLabels)
 	if  createPWs {
 		res, err := ctrl.CreateOrUpdate(ctx, r.Client, &manageTemplatesRB, func() error {
 			return ctrl.SetControllerReference(tn, &manageTemplatesRB, r.Scheme)
@@ -38,11 +41,13 @@ func (r *TenantReconciler) handlePersonalWorkspaceRoleBindings(ctx context.Conte
 	return nil
 }
 
-func generateManageTemplatesRoleBinding(name string, namespace string) rbacv1.RoleBinding {
+func generateManageTemplatesRoleBinding(name string, namespace string, inheritedLabels map[string]string) rbacv1.RoleBinding {
 	rb := rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{
-		Name:      "crownlabs-view-templates",
+		Name:      "crownlabs-manage-templates",
 		Namespace: namespace,
 	}}
+	rb.Labels = inheritedLabels
+	rb.Labels["crownlabs.polito.it/managed-by"] = "tenant"
 	rb.RoleRef = rbacv1.RoleRef{Kind: "ClusterRole", Name: "crownlabs-manage-templates", APIGroup: "rbac.authorization.k8s.io"}
 	rb.Subjects = []rbacv1.Subject{{Kind: "User", Name: name, APIGroup: "rbac.authorization.k8s.io"}}
 	return rb
