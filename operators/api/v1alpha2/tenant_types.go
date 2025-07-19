@@ -132,7 +132,7 @@ type TenantStatus struct {
 
 	// The namespace containing the personal workspace of the Tenant.
 	// This is the same as PersonalNamespace if the operations for enabling the personal workspace are completed successfully.
-	PersonalWorkspace NameCreated `json:"personalWorkspace,omitempty"`
+	PersonalWorkspaceNamespace NameCreated `json:"personalWorkspaceNamespace,omitempty"`
 
 	// Whether all subscriptions and resource creations succeeded or an error
 	// occurred. In case of errors, the other status fields provide additional
@@ -142,7 +142,6 @@ type TenantStatus struct {
 
 	// The amount of resources associated with this Tenant, either inherited from the Workspaces in which he/she is enrolled, or manually overridden.
 	Quota TenantResourceQuota `json:"quota,omitempty"`
-
 }
 
 // +kubebuilder:object:root=true

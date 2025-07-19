@@ -187,10 +187,10 @@ spec:
                 required:
                 - created
                 type: object
-              personalWorkspace:
+              personalWorkspaceNamespace:
                 description: |-
-                  The name of the personal workspace created for the tenant
-                  The personal workspace is created only if the .spec.CreatePersonalWorkspace flag is true
+                  The namespace containing the personal workspace of the Tenant.
+                  This is the same as PersonalNamespace if the operations for enabling the personal workspace are completed successfully.
                 properties:
                   created:
                     description: Whether the creation succeeded or not.

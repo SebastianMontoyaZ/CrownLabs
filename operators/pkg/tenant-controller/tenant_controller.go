@@ -207,7 +207,7 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	if err = r.handlePersonalWorkspaceRoleBindings(ctx, &tn); err != nil {
 		klog.Errorf("Error when updating personal workspace role bindings for tenant %s -> %s", tn.Name, err)
-		tn.Status.PersonalWorkspace.Created = false
+		tn.Status.PersonalWorkspaceNamespace.Created = false
 		tnOpinternalErrors.WithLabelValues("tenant", "personal-workspace").Inc()
 		return ctrl.Result{}, err
 	}

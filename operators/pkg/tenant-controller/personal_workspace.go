@@ -54,12 +54,12 @@ func generateManageTemplatesRoleBinding(name string, namespace string, inherited
 
 // modify the state of the personal workspace to enabled
 func personalWorkspaceStatusEnable(tn *crownlabsv1alpha2.Tenant) {
-	tn.Status.PersonalWorkspace.Created = true
-	tn.Status.PersonalWorkspace.Name = tn.Status.PersonalNamespace.Name
+	tn.Status.PersonalWorkspaceNamespace.Created = true
+	tn.Status.PersonalWorkspaceNamespace.Name = tn.Status.PersonalNamespace.Name
 }
 
 // modify the state of the personal workspace to disabled
 func personalWorkspaceStatusDisable(tn *crownlabsv1alpha2.Tenant) {
-	tn.Status.PersonalWorkspace.Created = false
-	tn.Status.PersonalWorkspace.Name = ""
+	tn.Status.PersonalWorkspaceNamespace.Created = false
+	tn.Status.PersonalWorkspaceNamespace.Name = ""
 }
