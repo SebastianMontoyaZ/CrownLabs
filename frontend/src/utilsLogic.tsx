@@ -95,8 +95,11 @@ export const makeGuiInstance = (
     templateName: string;
   },
 ) => {
+  console.log('makeGuiInstance', instance, userId, optional);
   if (!instance || !userId) {
-    throw new Error('getInstances() error: a required parameter is undefined');
+    throw new Error(
+      `getInstances() error: a required parameter is undefined. instance=${instance}, userId=${userId}, optional=${optional}`
+    );
   }
 
   const { metadata, spec, status } = instance;

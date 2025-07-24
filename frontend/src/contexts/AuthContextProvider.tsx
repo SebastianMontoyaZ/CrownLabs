@@ -1,69 +1,58 @@
-import {
-  type FC,
-  type PropsWithChildren,
-  useCallback,
-  useContext,
-  useEffect,
-} from 'react';
-
-import { ErrorContext } from '../errorHandling/ErrorContext';
-import { ErrorTypes } from '../errorHandling/utils';
+import React, { type FC, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { AuthContext } from './AuthContext';
+import { AuthContext, type IAuthContext } from './AuthContext';
 
-const AuthContextProvider: FC<PropsWithChildren> = props => {
-  const { children } = props;
-  const {
-    isAuthenticated,
-    isLoading,
-    user,
-    signinRedirect,
-    removeUser,
-    signoutRedirect,
-    startSilentRenew,
-  } = useAuth();
+const DEV_MODE = import.meta.env.MODE === 'development';
 
-  const { makeErrorCatcher, setExecLogin, execLogin } =
-    useContext(ErrorContext);
+const mockUser = {
+  profile: {
+    sub: 'mock-user-id',
+    preferred_username: 'mockuser',
+    email: 'mock@crownlabs.polito.it',
+  },
+};
 
-  const loginErrorCatcher = makeErrorCatcher(ErrorTypes.AuthError);
+interface AuthContextProviderProps {
+  children: ReactNode;
+}
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      startSilentRenew();
-    }
-  }, [startSilentRenew, isAuthenticated]);
+const AuthContextProvider: FC<AuthContextProviderProps> = ({ children }) => {
+  const auth = useAuth();
 
-  useEffect(() => {
-    if (!isLoading && (!isAuthenticated || execLogin)) {
-      signinRedirect().catch(loginErrorCatcher);
-      setExecLogin(false);
-    }
-  }, [
-    execLogin,
-    setExecLogin,
-    isLoading,
-    isAuthenticated,
-    signinRedirect,
-    loginErrorCatcher,
-  ]);
+  let authContextValue: IAuthContext;
 
-  const logout = useCallback(() => {
-    return removeUser()
-      .then(() => signoutRedirect())
-      .catch(loginErrorCatcher);
-  }, [removeUser, signoutRedirect, loginErrorCatcher]);
+  console.log('AuthContextProvider DEV_MODE:', DEV_MODE);
 
-  return isLoading ? null : (
-    <AuthContext.Provider
-      value={{
-        isLoggedIn: isAuthenticated,
-        token: user?.id_token,
-        userId: user?.profile.preferred_username || '',
-        profile: user?.profile,
-        logout,
-      }}
-    >
+  if (DEV_MODE) {
+    console.log('AuthContextProvider using mock user:', mockUser);
+    authContextValue = {
+      user: mockUser,
+      isAuthenticated: true,
+      isLoading: false,
+      login: () => {},
+      logout: () => {},
+      refreshToken: async () => {},
+    };
+  } else {
+    authContextValue = {
+      user: auth.user,
+      isAuthenticated: auth.isAuthenticated,
+      isLoading: auth.isLoading,
+      login: () => auth.signinRedirect(),
+      logout: () => auth.signoutRedirect(),
+      refreshToken: async () => {
+        try {
+          await auth.signinSilent();
+        } catch (error) {
+          console.error('Failed to refresh token:', error);
+          auth.signinRedirect();
+        }
+      },
+    };
+  }
+
+  return (
+    <AuthContext.Provider value={authContextValue}>
       {children}
     </AuthContext.Provider>
   );

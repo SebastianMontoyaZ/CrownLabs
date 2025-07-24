@@ -79,6 +79,9 @@ type TenantReconciler struct {
 	RequeueTimeMaximum          time.Duration
 	TenantNSKeepAlive           time.Duration
 	BaseWorkspaces              []string
+	PWsDefaultCPU               string
+	PWsDefaultMemory            string
+	PWsDefaultInstances         int
 
 	// This function, if configured, is deferred at the beginning of the Reconcile.
 	// Specifically, it is meant to be set to GinkgoRecover during the tests,
@@ -140,6 +143,13 @@ func (r *TenantReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 	// tenant is NOT being deleted
 	klog.Infof("Reconciling tenant %s", tn.Name)
+
+	// enforce personal workspace
+	// before other operations on the tenant resource as we make changes to the spec that might be used in other future operations
+	if err := r.handlePersonalWorkspaceEnforcement(ctx, &tn); err != nil {
+		klog.Errorf("Error when enforcing personal workspace for tenant %s -> %s", tn.Name, err)
+		retrigErr = err
+	}
 
 	// convert the email to lower-case, to prevent issues with keycloak
 	// This modification is not persisted (on purpose) in the tenant resource, since the
@@ -278,6 +288,12 @@ func (r *TenantReconciler) handleDeletion(ctx context.Context, tnName string) er
 				retErr = err
 			}
 		}
+	}
+	// delete personal workspace
+	if err := r.handlePersonalWorkspaceTenantDeletion(ctx, tnName); err != nil {
+		klog.Errorf("Error when deleting personal workspace for tenant %s -> %s", tnName, err)
+		tnOpinternalErrors.WithLabelValues("tenant", "personal-workspace").Inc()
+		retErr = err
 	}
 	return retErr
 }

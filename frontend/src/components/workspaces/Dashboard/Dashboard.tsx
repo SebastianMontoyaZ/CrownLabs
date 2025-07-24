@@ -29,6 +29,7 @@ const Dashboard: FC<IDashboardProps> = ({ ...props }) => {
 
   // prepare IWorkspaceGridProps.workspaceItems
   const workspaceItems = useMemo(() => {
+    console.log('workspaces:', workspaces);
     return workspaces
       .map((ws, idx) => ({
         id: idx,
@@ -80,6 +81,7 @@ const Dashboard: FC<IDashboardProps> = ({ ...props }) => {
           <WorkspaceAdd />
         ) : (
           <WorkspaceWelcome />
+          
         )}
       </Col>
     </>

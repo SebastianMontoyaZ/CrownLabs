@@ -34,12 +34,15 @@ const AppLayout: FC<IAppLayoutProps> = ({ ...props }) => {
     tenantData?.tenant?.status?.personalNamespace?.created ?? false;
   const firstName = profile?.given_name;
 
+  // 🔍 TEMPORARY: Force it to true to test the rest of the app
+  const forcedTenantNsIsReady = true;
+
   return (
     <BrowserRouter basename={BASE_URL}>
       <Layout className="h-full">
         <Navbar routes={routes} transparent={transparentNavbar} />
         <Content className="flex">
-          {tenantNsIsReady ? (
+          {forcedTenantNsIsReady ? (
             <Routes>
               {routes
                 .filter(r => r.content)

@@ -9,17 +9,20 @@ import {
   EnvironmentType,
   useCreateTemplateMutation,
   useImagesQuery,
+  useOwnedInstancesQuery,
 } from '../../../generated-types';
 import type { Workspace } from '../../../utils';
 import { JSONDeepCopy, WorkspaceRole } from '../../../utils';
 import UserListLogic from '../../accountPage/UserListLogic/UserListLogic';
 import Box from '../../common/Box';
+import { TenantContext } from '../../../contexts/TenantContext';
 import ModalCreateTemplate from '../ModalCreateTemplate';
 import type {
   Image,
   Template,
 } from '../ModalCreateTemplate/ModalCreateTemplate';
 import { TemplatesTableLogic } from '../Templates/TemplatesTableLogic';
+import QuotaDisplay from '../QuotaDisplay/QuotaDisplay';
 
 export interface IWorkspaceContainerProps {
   tenantNamespace: string;
@@ -60,11 +63,26 @@ const getImages = (dataImages: ImagesQuery) => {
   return images;
 };
 
+// Helper function to check if this is a personal workspace
+const isPersonalWorkspace = (
+  workspace: Workspace,
+  tenantNamespace: string
+): boolean => {
+  return (
+    workspace.namespace === tenantNamespace ||
+    workspace.name.includes('personal') ||
+    workspace.namespace.includes(tenantNamespace)
+  );
+};
+
 const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
+  const { data } = useContext(TenantContext);
+  const tenantId = data?.tenant?.metadata?.name!;
   const [showUserListModal, setShowUserListModal] = useState<boolean>(false);
 
   const { tenantNamespace, workspace } = props;
-  console.log('WorkspaceContainer props:', props);
+  const isPersonal = isPersonalWorkspace(workspace, tenantNamespace);
+
   const { apolloErrorCatcher } = useContext(ErrorContext);
   const [createTemplateMutation, { loading }] = useCreateTemplateMutation({
     onError: apolloErrorCatcher,
@@ -76,6 +94,16 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
     variables: {},
     onError: apolloErrorCatcher,
   });
+
+  // Fetch instances data for personal workspaces (for quota display)
+  const { data: instancesData } = useOwnedInstancesQuery({
+    variables: { tenantNamespace },
+    onError: apolloErrorCatcher,
+    skip: !isPersonal, // Only fetch for personal workspaces
+  });
+
+  // Get instances for quota display
+  const instances = instancesData?.instanceList?.instances || [];
 
   const submitHandler = (t: Template) =>
     createTemplateMutation({
@@ -105,18 +133,23 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
       },
     });
 
-  const isPersonalWorkspace = (
-    workspaceName: string,
-    tenantNamespace: string
-  ): boolean => {
-    return (
-      workspaceName.includes('personal') ||
-      workspaceNamespace === tenantNamespace ||
-      workspaceNamespace.includes(tenantNamespace)
-    );
+  const handleAddTemplateYaml = async (
+    yaml: string,
+    isPersonal: boolean = false
+  ) => {
+    if (isPersonal) {
+      await createTemplateFromYaml({
+        yaml,
+        workspaceNamespace: workspace.namespace + tenantId, // pass the correct namespace
+      });
+    } else {
+      await createTemplateFromYaml({
+        yaml,
+        workspaceNamespace: workspace.namespace,
+      }); // pass the correct
+    }
+    setShowAddYamlModal(false);
   };
-
-  const isPersonal = isPersonalWorkspace(workspace.name, tenantNamespace);
 
   return (
     <>
@@ -130,7 +163,6 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
         images={getImages(dataImages!)}
         submitHandler={submitHandler}
         loading={loading}
-        isPersonal={isPersonal}
       />
       <Box
         header={{
@@ -139,10 +171,15 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
             <div className="h-full flex justify-center items-center px-5">
               <p className="md:text-4xl text-2xl text-center mb-0">
                 <b>{workspace.prettyName}</b>
+                {isPersonal && (
+                  <span className="ml-2 text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                    Personal
+                  </span>
+                )}
               </p>
             </div>
           ),
-          left: workspace.role === WorkspaceRole.manager && (
+          left: workspace.role === WorkspaceRole.manager && !isPersonal && (
             <div className="h-full flex justify-center items-center pl-10">
               <Tooltip title="Manage users">
                 <Button
@@ -182,13 +219,13 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
         }}
       >
         <TemplatesTableLogic
+          isPersonal={isPersonal}
           tenantNamespace={tenantNamespace}
           role={workspace.role}
           workspaceNamespace={workspace.namespace}
           workspaceName={workspace.name}
-          workspaceQuota={workspace.quota}
-          isPersonal={isPersonal}
         />
+
         <Modal
           destroyOnHidden={true}
           title={`Users in ${workspace.prettyName} `}

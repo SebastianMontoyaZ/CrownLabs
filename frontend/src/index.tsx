@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import './theming';
 import '@ant-design/v5-patch-for-react-19';
 import App from './App';
-import TenantContextProvider from './contexts/TenantContextProvider';
+import { TenantProvider } from './contexts/TenantContext'; // ✅ Changed this line
 import ErrorContextProvider from './errorHandling/ErrorContextProvider';
 import AuthContextProvider from './contexts/AuthContextProvider';
 import { AuthProvider, type AuthProviderProps } from 'react-oidc-context';
@@ -37,15 +37,15 @@ document.addEventListener('DOMContentLoaded', () => {
           <AuthProvider {...oidcConfig}>
             <AuthContextProvider>
               <ApolloClientSetup>
-                <TenantContextProvider>
+                <TenantProvider>
                   <App />
-                </TenantContextProvider>
+                </TenantProvider>
               </ApolloClientSetup>
             </AuthContextProvider>
           </AuthProvider>
         </ErrorContextProvider>
       </ThemeContextProvider>
-    </React.StrictMode>,
+    </React.StrictMode>
   );
   document.getElementById('loader')?.remove();
 });

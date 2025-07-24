@@ -47,5 +47,7 @@ export class CustomError {
   };
 }
 
-export const hasRenderingError = (errorsQueue: CustomError[]) =>
-  errorsQueue.map(e => e.getType()).includes(ErrorTypes.RenderError);
+export const hasRenderingError = (errorsQueue: CustomError[] | undefined) =>
+  errorsQueue
+    ? errorsQueue.map(e => e.getType()).includes(ErrorTypes.RenderError)
+    : false;
