@@ -57,6 +57,8 @@ const TemplatesTable: FC<ITemplatesTableProps> = ({ ...props }) => {
     createInstance,
     workspaceNamespace,
     workspaceName,
+    workspaceQuota,
+    isPersonal,
   } = props;
 
   const { hasSSHKeys } = useContext(TenantContext);
@@ -80,6 +82,9 @@ const TemplatesTable: FC<ITemplatesTableProps> = ({ ...props }) => {
           expandRow={listToggler}
           workspaceNamespace={workspaceNamespace}
           workspaceName={workspaceName}
+          templates={templates} // Pass all templates
+          workspaceQuota={workspaceQuota}
+          isPersonal={isPersonal}
         />
       ),
     },

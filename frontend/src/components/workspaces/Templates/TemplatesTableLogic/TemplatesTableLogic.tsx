@@ -42,6 +42,7 @@ export interface ITemplateTableLogicProps {
     memory?: string;
     instances?: number;
   };
+  isPersonal?: boolean;
 }
 
 const fetchPolicy_networkOnly: FetchPolicy = 'network-only';
@@ -51,7 +52,7 @@ const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
   const userId = user?.profile?.sub;
   const { makeErrorCatcher, apolloErrorCatcher, errorsQueue } =
     useContext(ErrorContext);
-  const { tenantNamespace, workspaceNamespace, workspaceName, role, workspaceQuota } = props;
+  const { tenantNamespace, workspaceNamespace, workspaceName, role, workspaceQuota, isPersonal } = props;
 
   const [dataInstances, setDataInstances] = useState<Instance[]>([]);
 
@@ -220,20 +221,6 @@ const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
     [dataTemplate, dataInstances],
   );
 
-  // Helper function to check if this is a personal workspace
-  const isPersonalWorkspace = (
-    workspaceName: string,
-    tenantNamespace: string
-  ): boolean => {
-    return (
-      workspaceName.includes('personal') ||
-      workspaceNamespace === tenantNamespace ||
-      workspaceNamespace.includes(tenantNamespace)
-    );
-  };
-
-  const isPersonal = isPersonalWorkspace(workspaceName, tenantNamespace);
-
   return (
     <>
       {isPersonal && (
@@ -269,6 +256,8 @@ const TemplatesTableLogic: FC<ITemplateTableLogicProps> = ({ ...props }) => {
             deleteTemplateLoading={loadingDeleteTemplateMutation}
             editTemplate={() => null}
             createInstance={createInstance}
+            workspaceQuota={workspaceQuota}
+            isPersonal={isPersonal}
           />
         ) : (
           <div

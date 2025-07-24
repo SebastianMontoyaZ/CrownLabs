@@ -105,6 +105,19 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
       },
     });
 
+  const isPersonalWorkspace = (
+    workspaceName: string,
+    tenantNamespace: string
+  ): boolean => {
+    return (
+      workspaceName.includes('personal') ||
+      workspaceNamespace === tenantNamespace ||
+      workspaceNamespace.includes(tenantNamespace)
+    );
+  };
+
+  const isPersonal = isPersonalWorkspace(workspace.name, tenantNamespace);
+
   return (
     <>
       <ModalCreateTemplate
@@ -117,6 +130,7 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
         images={getImages(dataImages!)}
         submitHandler={submitHandler}
         loading={loading}
+        isPersonal={isPersonal}
       />
       <Box
         header={{
@@ -173,6 +187,7 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
           workspaceNamespace={workspace.namespace}
           workspaceName={workspace.name}
           workspaceQuota={workspace.quota}
+          isPersonal={isPersonal}
         />
         <Modal
           destroyOnHidden={true}

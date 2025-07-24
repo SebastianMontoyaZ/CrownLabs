@@ -30,6 +30,7 @@ import {
   UpdatedOwnedInstancesDocument,
   Role,
   EnvironmentType,
+  WorkspaceQuotasDocument,
 } from '../../generated-types';
 import { MockedProvider } from '@apollo/client/testing';
 import type { ReactNode } from 'react';
@@ -1044,6 +1045,49 @@ const mocks = [
         templateList: {
           __typename: 'TemplateList',
           templates: [],
+        },
+      },
+    },
+  },
+  {
+    request: {
+      query: WorkspaceQuotasDocument
+      // variables: {} // Add variables if your query uses them
+    },
+    result: {
+      data: {
+        workspaces: {
+          __typename: 'ItPolitoCrownlabsV1alpha1WorkspaceList',
+          items: [
+            {
+              __typename: 'ItPolitoCrownlabsV1alpha1Workspace',
+              metadata: { __typename: 'Metadata2', name: 'development' },
+              spec: {
+                __typename: 'Spec2',
+                prettyName: 'Development Environment',
+                quota: {
+                  __typename: 'Quota',
+                  cpu: '8',
+                  memory: '16Gi',
+                  instances: 10,
+                },
+              },
+            },
+            {
+              __typename: 'ItPolitoCrownlabsV1alpha1Workspace',
+              metadata: { __typename: 'Metadata2', name: 'personal' },
+              spec: {
+                __typename: 'Spec2',
+                prettyName: 'Personal Workspace',
+                quota: {
+                  __typename: 'Quota',
+                  cpu: '4',
+                  memory: '8Gi',
+                  instances: 5,
+                },
+              },
+            },
+          ],
         },
       },
     },
