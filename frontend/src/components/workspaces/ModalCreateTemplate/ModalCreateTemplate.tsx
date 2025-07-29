@@ -8,6 +8,7 @@ import {
   Checkbox,
   Tooltip,
   AutoComplete,
+  Select,
 } from 'antd';
 import { Button } from 'antd';
 import type {
@@ -26,17 +27,17 @@ const alternativeHandle = { border: 'solid 2px #1c7afdd8' };
 
 export type Image = {
   name: string;
-  vmorcontainer: Array<VmOrContainer>;
+  type: Array<ImageType>;
   registry: string;
 };
 
-type VmOrContainer = EnvironmentType.VirtualMachine | EnvironmentType.Container;
+type ImageType = EnvironmentType.VirtualMachine | EnvironmentType.Container | EnvironmentType.CloudVm | EnvironmentType.Standalone;
 
 type Template = {
   name?: string;
   image?: string;
   registry?: string;
-  vmorcontainer?: VmOrContainer;
+  imageType?: ImageType;
   persistent: boolean;
   mountMyDrive: boolean;
   gui: boolean;
@@ -94,7 +95,7 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
     submitHandler,
     loading,
     workspaceNamespace,
-    isPersonal = false,
+    isPersonal,
   } = props;
 
   // Add "External image" to the options if personal workspace
@@ -109,7 +110,7 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
     name: template && template.name,
     image: template && template.image,
     registry: template && template.registry,
-    vmorcontainer: template && template.vmorcontainer,
+    imageType: template && template.imageType,
     persistent: template?.persistent ?? false,
     mountMyDrive: template?.mountMyDrive ?? true,
     gui: template?.gui ?? true,
@@ -130,12 +131,12 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
     if (
       formTemplate.name &&
       formTemplate.image &&
-      formTemplate.vmorcontainer &&
+      formTemplate.imageType &&
       valid.name.status === 'success' &&
       (template
         ? template.name !== formTemplate.name ||
           template.image !== formTemplate.image ||
-          template.vmorcontainer !== formTemplate.vmorcontainer ||
+          template.imageType !== formTemplate.imageType ||
           template.gui !== formTemplate.gui ||
           template.persistent !== formTemplate.persistent ||
           template.cpu !== formTemplate.cpu ||
@@ -256,6 +257,14 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
   // Track if "External image" is selected
   const isExternalImage = formTemplate.image === '**-- External image --**';
 
+  // Environment type options for external images
+  const environmentOptions = [
+    { value: EnvironmentType.VirtualMachine, label: 'VirtualMachine' },
+    { value: EnvironmentType.Container, label: 'Container' },
+    { value: EnvironmentType.CloudVm, label: 'CloudVM' },
+    { value: EnvironmentType.Standalone, label: 'Standalone' },
+  ];
+
   return (
     <Modal
       destroyOnHidden={true}
@@ -275,7 +284,7 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
         initialValues={{
           templatename: formTemplate.name,
           image: formTemplate.image,
-          vmorcontainer: formTemplate.vmorcontainer,
+          imageType: formTemplate.imageType,
           cpu: formTemplate.cpu,
           ram: formTemplate.ram,
           disk: formTemplate.disk,
@@ -341,13 +350,13 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
                       ...old,
                       image: '**-- External image --**',
                       registry: '', // reset registry
-                      vmorcontainer: EnvironmentType.Container,
+                      imageType: EnvironmentType.Container,
                       persistent: false,
                       gui: true,
                     }));
                     form.setFieldsValue({
                       image: value,
-                      vmorcontainer: EnvironmentType.Container,
+                      imageType: EnvironmentType.Container,
                     });
                   } else {
                     const imageFound = images.find(
@@ -357,15 +366,15 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
                       ...old,
                       image: String(value),
                       registry: imageFound?.registry,
-                      vmorcontainer:
-                        imageFound?.vmorcontainer[0] ?? EnvironmentType.Container,
+                      imageType:
+                        imageFound?.type[0] ?? EnvironmentType.Container,
                       persistent: false,
                       gui: true,
                     }));
                     form.setFieldsValue({
                       image: value,
-                      vmorcontainer:
-                        imageFound?.vmorcontainer[0] ?? EnvironmentType.Container,
+                      imageType:
+                        imageFound?.type[0] ?? EnvironmentType.Container,
                     });
                   }
                 }
@@ -373,31 +382,57 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
               placeholder="Select an image"
             />
           </Form.Item>
-
-          {isPersonal && isExternalImage && (
-            <Form.Item
-              className="mb-4"
-              name="registry"
-              required
-              rules={[
-                { required: true, message: 'Please enter the container image' },
-                {
-                  pattern: /^([a-z0-9]+([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]+([-a-z0-9]*[a-z0-9])?)*(\/[a-z0-9]+([-a-z0-9]*[a-z0-9])?)*)(:[a-z0-9]+)?$/,
-                  message: 'Please enter a valid container image name',
-                },
-              ]}
-            >
-              <Input
-                value={formTemplate.registry}
-                onChange={e =>
-                  setFormTemplate(old => ({
-                    ...old,
-                    registry: e.target.value,
-                  }))
-                }
-                placeholder="docker.io/library/ubuntu:22.04"
-              />
-            </Form.Item>
+        
+          {isExternalImage && (
+            <>
+              <Form.Item
+                className="mb-4"
+                name="registry"
+                required
+                rules={[
+                  { required: true, message: 'Please enter the container image' },
+                  {
+                    pattern: /^([a-z0-9]+([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]+([-a-z0-9]*[a-z0-9])?)*(\/[a-z0-9]+([-a-z0-9]*[a-z0-9])?)*)(:[a-z0-9]+)?$/,
+                    message: 'Please enter a valid container image name',
+                  },
+                ]}
+              >
+                <Input
+                  value={formTemplate.registry}
+                  onChange={e =>
+                    setFormTemplate(old => ({
+                      ...old,
+                      registry: e.target.value,
+                    }))
+                  }
+                  placeholder="docker.io/library/ubuntu:22.04"
+                />
+              </Form.Item>
+              
+              <Form.Item
+                className="mb-4"
+                name="imageType"
+                required
+                rules={[
+                  { required: true, message: 'Please select environment type' },
+                ]}
+              >
+                <Select
+                  value={formTemplate.imageType}
+                  onChange={value => {
+                    setFormTemplate(old => ({
+                      ...old,
+                      imageType: value,
+                    }));
+                    form.setFieldsValue({
+                      imageType: value,
+                    });
+                  }}
+                  options={environmentOptions}
+                  placeholder="Select environment type"
+                />
+              </Form.Item>
+            </>
           )}
 
           <Form.Item className="mb-4">

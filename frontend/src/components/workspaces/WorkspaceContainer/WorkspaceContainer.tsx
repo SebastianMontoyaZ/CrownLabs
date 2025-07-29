@@ -24,6 +24,7 @@ import { TemplatesTableLogic } from '../Templates/TemplatesTableLogic';
 export interface IWorkspaceContainerProps {
   tenantNamespace: string;
   workspace: Workspace;
+  isPersonalWorkspace?: boolean;
 }
 
 const getImages = (dataImages: ImagesQuery) => {
@@ -40,7 +41,7 @@ const getImages = (dataImages: ImagesQuery) => {
         versionsInImageName = [
           {
             name: latestVersion,
-            vmorcontainer: [EnvironmentType.VirtualMachine],
+            type: [EnvironmentType.VirtualMachine],
             registry: registry!,
           },
         ];
@@ -49,7 +50,7 @@ const getImages = (dataImages: ImagesQuery) => {
           ir?.versions.map(v => {
             return {
               name: `${ir?.name}:${v}`,
-              vmorcontainer: [EnvironmentType.Container],
+              type: [EnvironmentType.Container],
               registry: registry || '',
             };
           }) || [];
@@ -64,7 +65,7 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
   const [showUserListModal, setShowUserListModal] = useState<boolean>(false);
 
   const { tenantNamespace, workspace } = props;
-
+  console.log('WorkspaceContainer props:', props);
   const { apolloErrorCatcher } = useContext(ErrorContext);
   const [createTemplateMutation, { loading }] = useCreateTemplateMutation({
     onError: apolloErrorCatcher,
@@ -77,24 +78,25 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
     onError: apolloErrorCatcher,
   });
 
+  const isPersonal = props.isPersonalWorkspace;
+
   const submitHandler = (t: Template) =>
     createTemplateMutation({
       variables: {
         workspaceId: workspace.name,
-        workspaceNamespace: workspace.namespace,
+        workspaceNamespace: isPersonal ? tenantNamespace : workspace.namespace,
         templateId: `${workspace.name}-`,
         templateName: t.name?.trim() || '',
         descriptionTemplate: t.name?.trim() || '',
-        image: t.registry
-          ? `${t.registry}/${t.image}`.trim()!
-          : `${t.image}`.trim()!,
+        image: t.image?.includes('/') || t.image?.includes(':') 
+          ? t.image  // Already a full image reference
+          : t.registry 
+          ? `${t.registry}/${t.image}`.trim()
+          : t.image,
         guiEnabled: t.gui,
         persistent: t.persistent,
         mountMyDriveVolume: t.mountMyDrive,
-        environmentType:
-          t.vmorcontainer === EnvironmentType.Container
-            ? EnvironmentType.Container
-            : EnvironmentType.VirtualMachine,
+        environmentType: t.imageType,
         resources: {
           cpu: t.cpu,
           memory: `${t.ram * 1000}M`,
@@ -104,24 +106,6 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
         sharedVolumeMounts: t.sharedVolumeMountInfos ?? [],
       },
     });
-
-  const isPersonalWorkspace = (
-    workspaceName: string,
-    tenantNamespace: string,
-    workspaceNamespace: string,
-  ): boolean => {
-    return (
-      workspaceName.includes('personal') ||
-      workspaceNamespace === tenantNamespace ||
-      workspaceNamespace.includes(tenantNamespace)
-    );
-  };
-
-  const isPersonal = isPersonalWorkspace(
-    workspace.name,
-    tenantNamespace,
-    workspace.namespace,
-  );
 
   return (
     <>

@@ -11,6 +11,15 @@ import WorkspaceAdd from '../WorkspaceAdd/WorkspaceAdd';
 const dashboard = new SessionValue(StorageKeys.Dashboard_View, '-1');
 export interface IDashboardProps {
   tenantNamespace: string;
+  tenantPersonalWorkspace?: {
+    createPWs: boolean;
+    isPWsCreated: boolean;
+    quota: {
+      cpu: string;
+      memory: string;
+      instances: number;
+    } | null;
+  };
   workspaces: Array<Workspace>;
   candidatesButton?: {
     show: boolean;
@@ -48,6 +57,7 @@ const Dashboard: FC<IDashboardProps> = ({ ...props }) => {
       >
         <div className="flex-auto lg:overflow-x-hidden overflow-auto scrollbar lg:h-full">
           <WorkspaceGrid
+            tenantPersonalWorkspace={props.tenantPersonalWorkspace}
             selectedWs={selectedWsId}
             workspaceItems={workspaceItems}
             onClick={setSelectedWs}
@@ -75,11 +85,24 @@ const Dashboard: FC<IDashboardProps> = ({ ...props }) => {
           <WorkspaceContainer
             tenantNamespace={tenantNamespace}
             workspace={workspaces[selectedWsId]}
+            isPersonalWorkspace={false}
+          />
+        ) : selectedWsId === -1 ? (
+          <WorkspaceContainer
+            tenantNamespace={tenantNamespace}
+            workspace={{
+              name: 'personal',
+              prettyName: 'Personal Workspace',
+              role: 'manager',
+              namespace: tenantNamespace,
+              waitingTenants: undefined,
+            }}
+            isPersonalWorkspace={true}
           />
         ) : selectedWsId === -2 ? (
           <WorkspaceAdd />
         ) : (
-          <WorkspaceWelcome />
+          <WorkspaceWelcome />    
         )}
       </Col>
     </>

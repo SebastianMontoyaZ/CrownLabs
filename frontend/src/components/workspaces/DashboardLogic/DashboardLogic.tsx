@@ -10,7 +10,7 @@ import {
   useWorkspacesQuery,
   useWorkspaceQuotasQuery,
 } from '../../../generated-types';
-import type { Workspace, WorkspaceQuota } from '../../../utils';
+import type { Workspace } from '../../../utils';
 import { WorkspaceRole } from '../../../utils';
 import { useApolloClient } from '@apollo/client';
 import { ErrorContext } from '../../../errorHandling/ErrorContext';
@@ -21,18 +21,18 @@ const dashboard = new LocalValue(StorageKeys.Dashboard_LoadCandidates, 'false');
 const DashboardLogic: FC = () => {
   const { apolloErrorCatcher } = useContext(ErrorContext);
 
-  const { data: quotasData } = useWorkspaceQuotasQuery();
+  const { data: quotasData, loading: quotasLoading, error: quotasError } = useWorkspaceQuotasQuery();
 
   const workspaceQuotas = useMemo(() => {
     // Map workspace name to quota for easy lookup
-    const map: Record<string, WorkspaceQuota> = {};
+    const map: Record<string, { cpu: any; memory: any; instances: number }> = {};
     quotasData?.workspaces?.items?.forEach(ws => {
       if (ws?.metadata?.name && ws?.spec?.quota) {
         map[ws.metadata.name] = ws.spec.quota;
       }
     });
     return map;
-  }, [quotasData]);
+  }, [quotasData]); 
 
   const {
     data: tenantData,
@@ -45,11 +45,13 @@ const DashboardLogic: FC = () => {
       tenantData?.tenant?.spec?.workspaces
         ?.filter(w => w?.role !== Role.Candidate)
         ?.map(makeWorkspace) ?? [];
-    const workspacesWithQuotas = baseWorkspaces.map(w => ({
+
+    // Enrich each workspace with its quota, if available
+    return baseWorkspaces.map(w => ({
       ...w,
-      quota: workspaceQuotas[w.name],
+      quota: workspaceQuotas[w.name], // append quota by workspace name
     }));
-    return workspacesWithQuotas;
+    // Add workspaceQuotas as a dependency
   }, [tenantData?.tenant?.spec?.workspaces, workspaceQuotas]);
 
   const [viewWs, setViewWs] = useState<Workspace[]>(ws);
@@ -113,8 +115,6 @@ const DashboardLogic: FC = () => {
             executeNext();
           }
         });
-    } else {
-      setViewWs(ws);
     }
   }, [
     client,
@@ -139,6 +139,11 @@ const DashboardLogic: FC = () => {
     <>
       <Dashboard
         tenantNamespace={tenantNs}
+        tenantPersonalWorkspace={{
+          createPWs: tenantData?.tenant?.spec?.createPersonalWorkspace,
+          isPWsCreated: tenantData?.tenant?.status?.personalWorkspace?.created,
+          quota: tenantData?.tenant?.status?.quota,
+        }}
         workspaces={viewWs}
         candidatesButton={{
           show: ws.some(w => wsIsManagedWithApproval(w)),
