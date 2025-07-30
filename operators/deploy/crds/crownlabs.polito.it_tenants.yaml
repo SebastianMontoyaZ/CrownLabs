@@ -223,8 +223,8 @@ spec:
                 type: object
               personalWorkspace:
                 description: |-
-                  The name of the personal workspace created for the tenant
-                  The personal workspace is created only if the .spec.CreatePersonalWorkspace flag is true
+                  The namespace containing the resources of the personal workspace for the tenant
+                  The personal workspace is enabled only if the .spec.CreatePersonalWorkspace flag is true
                 properties:
                   created:
                     description: Whether the creation succeeded or not.

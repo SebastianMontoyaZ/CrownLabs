@@ -159,8 +159,8 @@ type TenantStatus struct {
 	// The amount of resources associated with this Tenant, either inherited from the Workspaces in which he/she is enrolled, or manually overridden.
 	Quota TenantResourceQuota `json:"quota,omitempty"`
 
-	// The name of the personal workspace created for the tenant
-	// The personal workspace is created only if the .spec.CreatePersonalWorkspace flag is true
+	// The namespace containing the resources of the personal workspace for the tenant
+	// The personal workspace is enabled only if the .spec.CreatePersonalWorkspace flag is true
 	PersonalWorkspace NameCreated `json:"personalWorkspace,omitempty"`
 }
 

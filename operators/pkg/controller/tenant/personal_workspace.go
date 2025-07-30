@@ -16,7 +16,7 @@ func (r *TenantReconciler) handlePersonalWorkspaceRoleBindings(ctx context.Conte
 	createPWs := tn.Spec.CreatePersonalWorkspace
 	if !tn.Status.PersonalNamespace.Created {
 		// if the personal namespace is not created, mark the personal workspace as not created and skip the rest
-		tn.Status.PersonalWorkspace.Created = false
+		setPersonalWorkspaceStatusDisabled(tn)
 		return nil
 	}
 	inheritedLabels := map[string]string{
@@ -31,9 +31,9 @@ func (r *TenantReconciler) handlePersonalWorkspaceRoleBindings(ctx context.Conte
 			return err
 		}
 		klog.Infof("RoleBinding for tenant %s %s", tn.Name, res)
-		tn.Status.PersonalWorkspace.Created = true
+		setPersonalWorkspaceStatusEnabled(tn)
 	} else {
-		tn.Status.PersonalWorkspace.Created = false
+		setPersonalWorkspaceStatusDisabled(tn)
 		if err := utils.EnforceObjectAbsence(ctx, r.Client, &manageTemplatesRB, "personal workspace role binding"); err != nil {
 			return err
 		}
@@ -51,4 +51,24 @@ func generateManageTemplatesRoleBinding(name string, namespace string, inherited
 	rb.RoleRef = rbacv1.RoleRef{Kind: "ClusterRole", Name: "crownlabs-manage-templates", APIGroup: "rbac.authorization.k8s.io"}
 	rb.Subjects = []rbacv1.Subject{{Kind: "User", Name: name, APIGroup: "rbac.authorization.k8s.io"}}
 	return rb
+}
+
+func setPersonalWorkspaceStatusEnabled(tn *crownlabsv1alpha2.Tenant) bool {
+	changed := false
+	if !tn.Status.PersonalWorkspace.Created || tn.Status.PersonalWorkspace.Name != tn.Status.PersonalNamespace.Name {
+		tn.Status.PersonalWorkspace.Created = tn.Spec.CreatePersonalWorkspace
+		tn.Status.PersonalWorkspace.Name = tn.Status.PersonalNamespace.Name
+		changed = true
+	}
+	return changed
+}
+
+func setPersonalWorkspaceStatusDisabled(tn *crownlabsv1alpha2.Tenant) bool {
+	changed := false
+	if tn.Status.PersonalWorkspace.Created || tn.Status.PersonalWorkspace.Name != "" {
+		tn.Status.PersonalWorkspace.Created = false
+		tn.Status.PersonalWorkspace.Name = ""
+		changed = true
+	}
+	return changed
 }
