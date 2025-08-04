@@ -61,6 +61,11 @@ spec:
             description: TenantSpec is the specification of the desired state of the
               Tenant.
             properties:
+              createPersonalWorkspace:
+                default: false
+                description: Whether a personal workspace should be created for the
+                  tenant
+                type: boolean
               createSandbox:
                 default: false
                 description: |-
@@ -206,6 +211,20 @@ spec:
                   This is the namespace that groups his/her own Instances, together with
                   all the accessory resources (e.g. RBACs, resource quota, network policies,
                   ...) created by the tenant-operator.
+                properties:
+                  created:
+                    description: Whether the creation succeeded or not.
+                    type: boolean
+                  name:
+                    description: The name of the considered resource.
+                    type: string
+                required:
+                - created
+                type: object
+              personalWorkspace:
+                description: |-
+                  The name of the personal workspace created for the tenant
+                  The personal workspace is created only if the .spec.CreatePersonalWorkspace flag is true
                 properties:
                   created:
                     description: Whether the creation succeeded or not.
