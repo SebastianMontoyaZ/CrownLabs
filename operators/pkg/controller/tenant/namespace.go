@@ -187,7 +187,7 @@ func (r *Reconciler) checkNamespaceKeepAlive(ctx context.Context, log logr.Logge
 			log.Info("Instances found for tenant", "tenant", tn.Name)
 			resourcesPresent = true
 		}
-		if len(templateList.Items) > 0 {
+		if tn.Spec.CreatePersonalWorkspace && len(templateList.Items) > 0 {
 			log.Info("Templates found for tenant", "tenant", tn.Name)
 			resourcesPresent = true
 		}
