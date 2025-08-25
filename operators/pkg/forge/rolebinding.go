@@ -111,3 +111,25 @@ func ConfigureWorkspaceManagerManageSharedVolumesBinding(ws *v1alpha1.Workspace,
 		},
 	}
 }
+
+func ConfigurePersonalWorkspaceManageTemplatesBinding(rb *rbacv1.RoleBinding, tn* v1alpha2.Tenant, labels map[string]string) {
+	// Set the labels
+	if rb.Labels == nil {
+		rb.Labels = make(map[string]string)
+	}
+	maps.Copy(rb.Labels, labels)
+
+	// Configure the role binding spec
+	rb.RoleRef = rbacv1.RoleRef{
+		Kind:     "ClusterRole",
+		Name:     ManageTemplatesRoleName,
+		APIGroup: rbacv1.GroupName,
+	}
+	rb.Subjects = []rbacv1.Subject{
+		{
+			Kind:     rbacv1.UserKind,
+			Name:     tn.Name,
+			APIGroup: rbacv1.GroupName,
+		},
+	}
+}
