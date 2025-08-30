@@ -199,7 +199,7 @@ func (r *Reconciler) checkNamespaceKeepAlive(ctx context.Context, log logr.Logge
 			resourcesPresent = true
 		}
 		if !resourcesPresent {
-			log.Info("No resources found for tenant: namespace will be deleted", "tenant", tn.Name)
+			log.Info("No resources found for tenant: namespace can be deleted", "tenant", tn.Name)
 			return false, nil
 		}
 		log.Info("Resources found for tenant: namespace will not be deleted", "tenant", tn.Name)
