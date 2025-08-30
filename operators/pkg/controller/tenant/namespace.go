@@ -181,8 +181,10 @@ func (r *Reconciler) checkNamespaceKeepAlive(ctx context.Context, log logr.Logge
 	}
 	// Attempt to get templates in current namespace
 	templateList := &v1alpha2.TemplateList{}
-	if err := r.List(ctx, templateList, client.InNamespace(forge.GetTenantNamespaceName(tn))); err != nil {
-		return true, err
+	if tn.Spec.CreatePersonalWorkspace {
+		if err := r.List(ctx, templateList, client.InNamespace(forge.GetTenantNamespaceName(tn))); err != nil {
+			return true, err
+		}
 	}
 
 	if sPassed > r.TenantNSKeepAlive { // seconds
@@ -192,7 +194,7 @@ func (r *Reconciler) checkNamespaceKeepAlive(ctx context.Context, log logr.Logge
 			log.Info("Instances found for tenant", "tenant", tn.Name)
 			resourcesPresent = true
 		}
-		if tn.Spec.CreatePersonalWorkspace && len(templateList.Items) > 0 {
+		if len(templateList.Items) > 0 {
 			log.Info("Templates found for tenant", "tenant", tn.Name)
 			resourcesPresent = true
 		}

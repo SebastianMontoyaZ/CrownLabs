@@ -14,15 +14,14 @@ import (
 )
 
 func (r *Reconciler) handlePersonalWorkspaceRoleBindings(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
-	createPWs := tn.Spec.CreatePersonalWorkspace
 	if !tn.Status.PersonalNamespace.Created {
 		// if the personal namespace is not created, mark the personal workspace as not created and skip the rest
 		setPersonalWorkspaceStatusDisabled(tn)
 		return nil
 	}
-	manageTemplatesRB := rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Name: "crownlabs-manage-templates", Namespace: tn.Status.PersonalNamespace.Name}}
-	forge.ConfigurePersonalWorkspaceManageTemplatesBinding(&manageTemplatesRB, tn, forge.UpdateTenantResourceCommonLabels(manageTemplatesRB.Labels, r.TargetLabel))
-	if  createPWs {
+	manageTemplatesRB := rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Name: forge.ManageTemplatesRoleName, Namespace: tn.Status.PersonalNamespace.Name}}
+	if  tn.Spec.CreatePersonalWorkspace {
+		forge.ConfigurePersonalWorkspaceManageTemplatesBinding(&manageTemplatesRB, tn, forge.UpdateTenantResourceCommonLabels(manageTemplatesRB.Labels, r.TargetLabel))
 		res, err := ctrl.CreateOrUpdate(ctx, r.Client, &manageTemplatesRB, func() error {
 			return ctrl.SetControllerReference(tn, &manageTemplatesRB, r.Scheme)
 		})
