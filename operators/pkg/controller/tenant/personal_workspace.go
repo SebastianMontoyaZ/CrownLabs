@@ -2,10 +2,10 @@ package tenant
 
 import (
 	"context"
+	"fmt"
 
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	crownlabsv1alpha2 "github.com/netgroup-polito/CrownLabs/operators/api/v1alpha2"
@@ -14,6 +14,7 @@ import (
 )
 
 func (r *Reconciler) handlePersonalWorkspaceRoleBindings(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
+	log := ctrl.LoggerFrom(ctx)
 	if !tn.Status.PersonalNamespace.Created {
 		// if the personal namespace is not created, mark the personal workspace as not created and skip the rest
 		setPersonalWorkspaceStatusDisabled(tn)
@@ -28,7 +29,7 @@ func (r *Reconciler) handlePersonalWorkspaceRoleBindings(ctx context.Context, tn
 		if err != nil {
 			return err
 		}
-		klog.Infof("Personal Workspace role binding for tenant %s %s", tn.Name, res)
+		log.Info(fmt.Sprintf("Personal Workspace role binding %s", res))
 		setPersonalWorkspaceStatusEnabled(tn)
 	} else {
 		setPersonalWorkspaceStatusDisabled(tn)

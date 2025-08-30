@@ -71,7 +71,6 @@ func (r *Reconciler) enforceResourcesRelatedToPersonalNamespace(
 	if err := r.handlePersonalWorkspaceRoleBindings(ctx, tn); err != nil {
 		return fmt.Errorf("error when creating personal workspace role bindings for tenant %s: %w", tn.Name, err)
 	}
-	log.Info("Personal workspace handled")
 
 	return nil
 }

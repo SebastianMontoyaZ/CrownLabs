@@ -112,7 +112,7 @@ func (tv *TenantValidator) ValidatePreflight(
 	}
 
 	if tv.CheckWebhookOverride(&req) {
-		log.Info("admitted: successful override")
+		log.Info("overriding validation")
 		return ValidatePreflightResult{
 			newTenant: newTenant,
 			oldTenant: oldTenant,
@@ -370,7 +370,7 @@ func mapFromWorkspacesList(tenant *v1alpha2.Tenant) map[string]v1alpha2.Workspac
 func (tv *TenantValidator) HandlePersonalWorkspaceModification(ctx context.Context, newTenant *v1alpha2.Tenant, oldTenant *v1alpha2.Tenant) (admission.Warnings, error) {
 	log := ctrl.LoggerFrom(ctx)
 	// if the personal workspace was disabled before or was not created then there is nothing to check
-	if !oldTenant.Spec.CreatePersonalWorkspace || !newTenant.Status.PersonalWorkspace.Created{
+	if !oldTenant.Spec.CreatePersonalWorkspace || !oldTenant.Status.PersonalWorkspace.Created{
 		return nil, nil
 	}
 	// personal workspace was enabled, and is being disabled
@@ -382,6 +382,7 @@ func (tv *TenantValidator) HandlePersonalWorkspaceModification(ctx context.Conte
 		}
 		for _, instance := range instances.Items {
 			if instance.Spec.Template.Namespace == newTenant.Status.PersonalNamespace.Name {
+				log.Info("denied: cannot disable personal workspace, there are instances of personal workspace templates in the namespace")
 				return nil, errors.NewConflict( schema.GroupResource{}, newTenant.Name, fmt.Errorf("cannot disable personal workspace, there are instances of personal workspace templates in the namespace"))
 			}
 		}
