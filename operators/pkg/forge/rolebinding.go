@@ -112,12 +112,16 @@ func ConfigureWorkspaceManagerManageSharedVolumesBinding(ws *v1alpha1.Workspace,
 	}
 }
 
-func ConfigurePersonalWorkspaceManageTemplatesBinding(rb *rbacv1.RoleBinding, tn* v1alpha2.Tenant, labels map[string]string) {
+// ConfigurePersonalWorkspaceManageTemplatesBinding configures a RoleBinding for a tenant to manage templates.
+func ConfigurePersonalWorkspaceManageTemplatesBinding(tn *v1alpha2.Tenant, rb *rbacv1.RoleBinding, labels map[string]string) {
 	// Set the labels
 	if rb.Labels == nil {
 		rb.Labels = make(map[string]string)
 	}
 	maps.Copy(rb.Labels, labels)
+
+	// Ensure that the rolebinding is for the personal workspace
+	rb.Namespace = GetTenantNamespaceName(tn)
 
 	// Configure the role binding spec
 	rb.RoleRef = rbacv1.RoleRef{

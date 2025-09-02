@@ -366,7 +366,7 @@ func mapFromWorkspacesList(tenant *v1alpha2.Tenant) map[string]v1alpha2.Workspac
 	return wss
 }
 
-// HandlePersonalWorkspaceModification checks if the personal workspace is being disabled while it has templates with active instances
+// HandlePersonalWorkspaceModification checks if the personal workspace is being disabled while it has templates with active instances.
 func (tv *TenantValidator) HandlePersonalWorkspaceModification(ctx context.Context, newTenant *v1alpha2.Tenant, oldTenant *v1alpha2.Tenant) (admission.Warnings, error) {
 	log := ctrl.LoggerFrom(ctx)
 	// if the personal workspace was disabled before or was not created then there is nothing to check

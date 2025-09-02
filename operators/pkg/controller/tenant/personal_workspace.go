@@ -1,3 +1,17 @@
+// Copyright 2020-2025 Politecnico di Torino
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tenant
 
 import (
@@ -16,14 +30,14 @@ import (
 func (r *Reconciler) handlePersonalWorkspace(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
 	log := ctrl.LoggerFrom(ctx)
 	if !tn.Status.PersonalNamespace.Created {
-		// if the personal namespace is not created, mark the personal workspace as not created and skip the rest
+		// if the personal namespace is not created, mark the personal workspace as not created and skip the rest.
 		setPersonalWorkspaceStatusDisabled(tn)
 		log.Info("Tenant namespace does not exist, skipping personal workspace handling")
 		return nil
 	}
 	manageTemplatesRB := rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Name: forge.ManageTemplatesRoleName, Namespace: tn.Status.PersonalNamespace.Name}}
-	if  tn.Spec.CreatePersonalWorkspace {
-		forge.ConfigurePersonalWorkspaceManageTemplatesBinding(&manageTemplatesRB, tn, forge.UpdateTenantResourceCommonLabels(manageTemplatesRB.Labels, r.TargetLabel))
+	if tn.Spec.CreatePersonalWorkspace {
+		forge.ConfigurePersonalWorkspaceManageTemplatesBinding(tn, &manageTemplatesRB, forge.UpdateTenantResourceCommonLabels(manageTemplatesRB.Labels, r.TargetLabel))
 		res, err := ctrl.CreateOrUpdate(ctx, r.Client, &manageTemplatesRB, func() error {
 			return ctrl.SetControllerReference(tn, &manageTemplatesRB, r.Scheme)
 		})
