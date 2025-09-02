@@ -366,24 +366,24 @@ func mapFromWorkspacesList(tenant *v1alpha2.Tenant) map[string]v1alpha2.Workspac
 	return wss
 }
 
-// HandlePersonalWorkspaceModification checks if the personal workspace is being disabled while it has templates with active instances
-func (tv *TenantValidator) HandlePersonalWorkspaceModification(ctx context.Context, newTenant *v1alpha2.Tenant, oldTenant *v1alpha2.Tenant) (admission.Warnings, error) {
+// HandlePersonalWorkspaceModification checks if the personal workspace is being disabled while it has templates with active instances.
+func (tv *TenantValidator) HandlePersonalWorkspaceModification(ctx context.Context, newTenant, oldTenant *v1alpha2.Tenant) (admission.Warnings, error) {
 	log := ctrl.LoggerFrom(ctx)
 	// if the personal workspace was disabled before or was not created then there is nothing to check
-	if !oldTenant.Spec.CreatePersonalWorkspace || !oldTenant.Status.PersonalWorkspace.Created{
+	if !oldTenant.Spec.CreatePersonalWorkspace || !oldTenant.Status.PersonalWorkspace.Created {
 		return nil, nil
 	}
 	// personal workspace was enabled, and is being disabled
-	if !newTenant.Spec.CreatePersonalWorkspace{
+	if !newTenant.Spec.CreatePersonalWorkspace {
 		instances := &v1alpha2.InstanceList{}
 		if err := tv.Client.List(ctx, instances, client.InNamespace(newTenant.Status.PersonalNamespace.Name)); err != nil {
 			log.Error(err, "failed to list instances in personal namespace")
 			return nil, errors.NewInternalError(err)
 		}
-		for _, instance := range instances.Items {
-			if instance.Spec.Template.Namespace == newTenant.Status.PersonalNamespace.Name {
+		for i := 0; i < len(instances.Items); i++ {
+			if instances.Items[i].Spec.Template.Namespace == newTenant.Status.PersonalNamespace.Name {
 				log.Info("denied: cannot disable personal workspace, there are instances of personal workspace templates in the namespace")
-				return nil, errors.NewConflict( schema.GroupResource{}, newTenant.Name, fmt.Errorf("cannot disable personal workspace, there are instances of personal workspace templates in the namespace"))
+				return nil, errors.NewConflict(schema.GroupResource{}, newTenant.Name, fmt.Errorf("cannot disable personal workspace, there are instances of personal workspace templates in the namespace"))
 			}
 		}
 	}
