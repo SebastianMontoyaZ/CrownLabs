@@ -30,8 +30,8 @@ import (
 func (r *Reconciler) handlePersonalWorkspace(ctx context.Context, tn *crownlabsv1alpha2.Tenant) error {
 	log := ctrl.LoggerFrom(ctx)
 	if !tn.Status.PersonalNamespace.Created {
-		// if the personal namespace is not created, mark the personal workspace as not created and skip the rest.
-		setPersonalWorkspaceStatusDisabled(tn)
+		// if the personal namespace is not created skip the rest.
+		tn.Status.PersonalWorkspaceCreated = false
 		log.Info("Tenant namespace does not exist, skipping personal workspace handling")
 		return nil
 	}
@@ -42,35 +42,17 @@ func (r *Reconciler) handlePersonalWorkspace(ctx context.Context, tn *crownlabsv
 			return ctrl.SetControllerReference(tn, &manageTemplatesRB, r.Scheme)
 		})
 		if err != nil {
+			tn.Status.FailingWorkspaces = append(tn.Status.FailingWorkspaces, "personal-workspace")
+			tn.Status.PersonalWorkspaceCreated = false
 			return err
 		}
+		tn.Status.PersonalWorkspaceCreated = true
 		log.Info(fmt.Sprintf("Personal Workspace role binding %s", res))
-		setPersonalWorkspaceStatusEnabled(tn)
 	} else {
-		setPersonalWorkspaceStatusDisabled(tn)
+		tn.Status.PersonalWorkspaceCreated = false
 		if err := utils.EnforceObjectAbsence(ctx, r.Client, &manageTemplatesRB, "personal workspace role binding"); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func setPersonalWorkspaceStatusEnabled(tn *crownlabsv1alpha2.Tenant) bool {
-	changed := false
-	if !tn.Status.PersonalWorkspace.Created || tn.Status.PersonalWorkspace.Name != tn.Status.PersonalNamespace.Name {
-		tn.Status.PersonalWorkspace.Created = tn.Spec.CreatePersonalWorkspace
-		tn.Status.PersonalWorkspace.Name = tn.Status.PersonalNamespace.Name
-		changed = true
-	}
-	return changed
-}
-
-func setPersonalWorkspaceStatusDisabled(tn *crownlabsv1alpha2.Tenant) bool {
-	changed := false
-	if tn.Status.PersonalWorkspace.Created || tn.Status.PersonalWorkspace.Name != "" {
-		tn.Status.PersonalWorkspace.Created = false
-		tn.Status.PersonalWorkspace.Name = ""
-		changed = true
-	}
-	return changed
 }

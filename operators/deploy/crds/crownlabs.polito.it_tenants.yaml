@@ -221,20 +221,10 @@ spec:
                 required:
                 - created
                 type: object
-              personalWorkspace:
-                description: |-
-                  The namespace containing the resources of the personal workspace for the tenant
-                  The personal workspace is enabled only if the .spec.CreatePersonalWorkspace flag is true
-                properties:
-                  created:
-                    description: Whether the creation succeeded or not.
-                    type: boolean
-                  name:
-                    description: The name of the considered resource.
-                    type: string
-                required:
-                - created
-                type: object
+              personalWorkspaceCreated:
+                description: Whether a personal workspace has been created for the
+                  tenant.
+                type: boolean
               quota:
                 description: The amount of resources associated with this Tenant,
                   either inherited from the Workspaces in which he/she is enrolled,
@@ -305,6 +295,7 @@ spec:
             required:
             - keycloak
             - personalNamespace
+            - personalWorkspaceCreated
             - ready
             - sandboxNamespace
             type: object

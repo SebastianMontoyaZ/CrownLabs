@@ -159,9 +159,8 @@ type TenantStatus struct {
 	// The amount of resources associated with this Tenant, either inherited from the Workspaces in which he/she is enrolled, or manually overridden.
 	Quota TenantResourceQuota `json:"quota,omitempty"`
 
-	// The namespace containing the resources of the personal workspace for the tenant
-	// The personal workspace is enabled only if the .spec.CreatePersonalWorkspace flag is true
-	PersonalWorkspace NameCreated `json:"personalWorkspace,omitempty"`
+	// Whether a personal workspace has been created for the tenant.
+	PersonalWorkspaceCreated bool `json:"personalWorkspaceCreated"`
 }
 
 // +kubebuilder:object:root=true
