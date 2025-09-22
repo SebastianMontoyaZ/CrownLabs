@@ -1,33 +1,22 @@
 import type { FC } from 'react';
-import { useState, useEffect, useContext } from 'react';
-import {
-  Modal,
-  Slider,
-  Form,
-  Input,
-  Checkbox,
-  Tooltip,
-  AutoComplete,
-  Select,
-  Alert,
-} from 'antd';
+import { useState, useContext, useEffect } from 'react';
+import { Modal, Form, Input, Tooltip } from 'antd';
 import { Button } from 'antd';
-import { InfoCircleOutlined } from '@ant-design/icons';
 import type {
   CreateTemplateMutation,
-  SharedVolumeMountsListItem,
   ImagesQuery,
 } from '../../../generated-types';
 import {
   EnvironmentType,
   useWorkspaceTemplatesQuery,
   useImagesQuery,
+  useWorkspaceSharedVolumesQuery,
 } from '../../../generated-types';
 import type { FetchResult } from '@apollo/client';
 import { ErrorContext } from '../../../errorHandling/ErrorContext';
-import ShVolFormItem, { type ShVolFormItemValue } from './ShVolFormItem';
-
-const alternativeHandle = { border: 'solid 2px #1c7afdd8' };
+import { EnvFormItem, type TemplateEnvironment } from './EnvFormItem';
+import { makeGuiSharedVolume } from '../../../utilsLogic';
+import type { SharedVolume } from '../../../utils';
 
 export type Image = {
   name: string;
@@ -51,28 +40,63 @@ type ImageType =
   | EnvironmentType.Standalone;
 
 type Template = {
-  name?: string;
-  image?: string;
-  registry?: string;
-  imageType?: ImageType;
-  imageList?: string;
-  persistent: boolean;
-  mountMyDrive: boolean;
-  gui: boolean;
-  cpu: number;
-  ram: number;
-  disk: number;
-  sharedVolumeMountInfos?: SharedVolumeMountsListItem[];
+  name: string;
+  environments: TemplateEnvironment[];
 };
+
+// type Environment = {
+//   name: string;
+//   image?: string;
+//   registry?: string;
+//   environmentType?: ImageType;
+//   imageList?: string;
+//   persistent: boolean;
+//   mountMyDrive: boolean;
+//   gui: boolean;
+//   cpu: number;
+//   ram: number;
+//   disk: number;
+//   sharedVolumeMounts?: SharedVolumeMountsListItem[];
+// };
 
 type Interval = {
   max: number;
   min: number;
 };
 
-type Valid = {
-  name: { status: string; help?: string };
-  image: { status: string; help?: string };
+// Get images from selected image list
+const getImagesFromList = (imageList: ImageList): Image[] => {
+  const images: Image[] = [];
+
+  imageList.images.forEach(img => {
+    const versionsInImageName: Image[] = img.versions.map(v => ({
+      name: `${img.name}:${v}`,
+      type: [],
+      registry: imageList.registryName,
+    }));
+
+    images.push(...versionsInImageName);
+  });
+
+  return images;
+};
+
+// Process image lists from the query
+const getImageLists = (data: ImagesQuery): ImageList[] => {
+  if (!data?.imageList?.images) return [];
+
+  return data.imageList.images
+    .filter(img => img?.spec?.registryName && img?.spec?.images)
+    .map(img => ({
+      name: img!.spec!.registryName,
+      registryName: img!.spec!.registryName,
+      images: img!
+        .spec!.images.filter(i => i?.name && i?.versions)
+        .map(i => ({
+          name: i!.name,
+          versions: i!.versions.filter(v => v !== null) as string[],
+        })),
+    }));
 };
 
 export interface IModalCreateTemplateProps {
@@ -96,12 +120,6 @@ export interface IModalCreateTemplateProps {
   isPersonal?: boolean;
 }
 
-const getImageNoVer = (image: string) =>
-  // split on the last ':' to correctly handle registry:port/repo:tag cases
-  image.includes(':') ? image.slice(0, image.lastIndexOf(':')) : image;
-
-const isEmptyOrSpaces = (str: string) => !str || str.match(/^ *$/);
-
 const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
   const {
     show,
@@ -124,186 +142,116 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
     onError: apolloErrorCatcher,
   });
 
-  // Process image lists from the query
-  const getImageLists = (data: ImagesQuery): ImageList[] => {
-    if (!data?.imageList?.images) return [];
+  const [form] = Form.useForm<Template>();
 
-    return data.imageList.images
-      .filter(img => img?.spec?.registryName && img?.spec?.images)
-      .map(img => ({
-        name: img!.spec!.registryName,
-        registryName: img!.spec!.registryName,
-        images: img!
-          .spec!.images.filter(i => i?.name && i?.versions)
-          .map(i => ({
-            name: i!.name,
-            versions: i!.versions.filter(v => v !== null) as string[],
-          })),
-      }));
+  const getDefaultEnvironment = (envCount: number): TemplateEnvironment => {
+    const name = `env-${envCount}`;
+
+    return {
+      name: name,
+      image: '',
+      registry: '',
+      environmentType: EnvironmentType.VirtualMachine,
+      persistent: false,
+      gui: true,
+      cpu: cpuInterval.min,
+      ram: ramInterval.min,
+      disk: diskInterval.min,
+      sharedVolumeMounts: [],
+    };
   };
 
-  // Get images from selected image list
-  const getImagesFromList = (imageList: ImageList): Image[] => {
-    const images: Image[] = [];
-
-    imageList.images.forEach(img => {
-      const versionsInImageName: Image[] = img.versions.map(v => ({
-        name: `${img.name}:${v}`,
-        type: [],
-        registry: imageList.registryName,
-      }));
-
-      images.push(...versionsInImageName);
-    });
-
-    return images;
-  };
-
-  const imageLists = getImageLists(dataImages!);
-  const [availableImages, setAvailableImages] = useState<Image[]>([]);
-
-  const [formTemplate, setFormTemplate] = useState<Template>({
-    name: template && template.name,
-    image: template && template.image,
-    registry: template && template.registry,
-    imageType: template && template.imageType,
-    imageList: template && template.imageList,
-    persistent: template?.persistent ?? false,
-    mountMyDrive: template?.mountMyDrive ?? true,
-    gui: template?.gui ?? true,
-    cpu: template ? template.cpu : cpuInterval.min,
-    ram: template ? template.ram : ramInterval.min,
-    disk: template ? template.disk : diskInterval.min,
-    sharedVolumeMountInfos: template ? template.sharedVolumeMountInfos : [],
-  });
-
-  // Determine if we're using external images (for non-VM types)
-  const isUsingExternalImage =
-    formTemplate.imageType &&
-    formTemplate.imageType !== EnvironmentType.VirtualMachine;
-
-  // Get available images based on environment type
-  const imagesNoVersion = (() => {
-    if (formTemplate.imageType === EnvironmentType.VirtualMachine) {
-      // For VMs, show images from internal registry
-      const baseNames = availableImages.map(x => getImageNoVer(x.name));
-      return Array.from(new Set(baseNames)).sort((a, b) => a.localeCompare(b));
+  const getInitialTemplate = (tmpl?: Template): Template => {
+    if (!tmpl) {
+      return {
+        name: '',
+        environments: [getDefaultEnvironment(1)],
+      };
     }
-    return []; // For other types, no predefined images (external only)
-  })();
+
+    return tmpl;
+  };
+
+  // const [formTemplate, setFormTemplate] = useState<Template>(
+  //   getInitialTemplate(template),
+  // );
+
+  const [sharedVolumes, setDataShVols] = useState<SharedVolume[]>([]);
+
+  useWorkspaceSharedVolumesQuery({
+    variables: { workspaceNamespace },
+    onError: apolloErrorCatcher,
+    onCompleted: data =>
+      setDataShVols(
+        data.sharedvolumeList?.sharedvolumes
+          ?.map(sv => makeGuiSharedVolume(sv))
+          .sort((a, b) =>
+            (a.prettyName ?? '').localeCompare(b.prettyName ?? ''),
+          ) ?? [],
+      ),
+    fetchPolicy: 'network-only',
+  });
 
   const [buttonDisabled, setButtonDisabled] = useState(true);
 
-  const [valid, setValid] = useState<Valid>({
-    name: { status: 'success', help: undefined },
-    image: { status: 'success', help: undefined },
-  });
-
-  const [imagesSearchOptions, setImagesSearchOptions] = useState<string[]>();
-
   useEffect(() => {
-    if (
-      formTemplate.name &&
-      formTemplate.imageType &&
-      valid.name.status === 'success' &&
-      // For VMs, check if image is selected from the list
-      (formTemplate.imageType === EnvironmentType.VirtualMachine
-        ? formTemplate.image && formTemplate.imageList
-        : formTemplate.registry) && // For others, check if external image is provided
-      (template
-        ? template.name !== formTemplate.name ||
-          template.image !== formTemplate.image ||
-          template.imageType !== formTemplate.imageType ||
-          template.imageList !== formTemplate.imageList ||
-          template.gui !== formTemplate.gui ||
-          template.persistent !== formTemplate.persistent ||
-          template.cpu !== formTemplate.cpu ||
-          template.ram !== formTemplate.ram ||
-          template.disk !== formTemplate.disk ||
-          template.registry !== formTemplate.registry ||
-          JSON.stringify(template.sharedVolumeMountInfos) !==
-            JSON.stringify(formTemplate.sharedVolumeMountInfos)
-        : true)
-    )
-      setButtonDisabled(false);
-    else setButtonDisabled(true);
-  }, [formTemplate, template, valid.name.status]);
+    // let isValid = true;
+    // if (!formTemplate.name || valid.status === 'error') {
+    //   isValid = false;
+    // } else {
+    //   for (const env of formTemplate.environments) {
+    //     if (!env.name || !env.image) {
+    //       isValid = false;
+    //       break;
+    //     }
+    //   }
+    // }
+    // setButtonDisabled(!isValid);
+    // if (
+    //   formTemplate.name &&
+    //   formTemplate.imageType &&
+    //   valid.name.status === 'success' &&
+    //   // For VMs, check if image is selected from the list
+    //   (formTemplate.imageType === EnvironmentType.VirtualMachine
+    //     ? formTemplate.image && formTemplate.imageList
+    //     : formTemplate.registry) && // For others, check if external image is provided
+    //   (template
+    //     ? template.name !== formTemplate.name ||
+    //       template.image !== formTemplate.image ||
+    //       template.imageType !== formTemplate.imageType ||
+    //       template.imageList !== formTemplate.imageList ||
+    //       template.gui !== formTemplate.gui ||
+    //       template.persistent !== formTemplate.persistent ||
+    //       template.cpu !== formTemplate.cpu ||
+    //       template.ram !== formTemplate.ram ||
+    //       template.disk !== formTemplate.disk ||
+    //       template.registry !== formTemplate.registry ||
+    //       JSON.stringify(template.sharedVolumeMountInfos) !==
+    //         JSON.stringify(formTemplate.sharedVolumeMountInfos)
+    //     : true)
+    // )
+    //   setButtonDisabled(false);
+    // else setButtonDisabled(true);
+  }, [form]);
 
-  const nameValidator = () => {
-    if (formTemplate.name === '' || formTemplate.name === undefined) {
-      setValid(old => {
-        return {
-          ...old,
-          name: { status: 'error', help: 'Please insert template name' },
-        };
-      });
-    } else if (
-      !errorFetchTemplates &&
-      !loadingFetchTemplates &&
-      dataFetchTemplates?.templateList?.templates
-        ?.map(t => t?.spec?.prettyName)
-        .includes(formTemplate.name.trim())
-    ) {
-      setValid(old => {
-        return {
-          ...old,
-          name: {
-            status: 'error',
-            help: 'This name has already been used in this workspace',
-          },
-        };
-      });
-    } else {
-      setValid(old => {
-        return {
-          ...old,
-          name: { status: 'success', help: undefined },
-        };
-      });
+  const validateName = async (_: unknown, name: string) => {
+    if (!dataFetchTemplates || loadingFetchTemplates || errorFetchTemplates) {
+      throw new Error('Error fetching templates');
+    }
+
+    if (!dataFetchTemplates.templateList) return;
+
+    const trimmedName = name.trim().toLowerCase();
+    const duplicateIndex = dataFetchTemplates.templateList.templates.findIndex(
+      t => {
+        return t?.spec?.prettyName?.toLowerCase() === trimmedName;
+      },
+    );
+
+    if (duplicateIndex !== -1) {
+      throw new Error(`This name has already been used in this workspace`);
     }
   };
-
-  const imageValidator = () => {
-    if (formTemplate.imageType === EnvironmentType.VirtualMachine) {
-      if (isEmptyOrSpaces(formTemplate.image!)) {
-        setValid(old => {
-          return {
-            ...old,
-            image: { status: 'error', help: 'Select an image' },
-          };
-        });
-      } else {
-        setValid(old => {
-          return {
-            ...old,
-            image: { status: 'success', help: undefined },
-          };
-        });
-      }
-    } else {
-      // For external images, validate registry field
-      if (isEmptyOrSpaces(formTemplate.registry!)) {
-        setValid(old => {
-          return {
-            ...old,
-            image: {
-              status: 'error',
-              help: 'Enter an external image reference',
-            },
-          };
-        });
-      } else {
-        setValid(old => {
-          return {
-            ...old,
-            image: { status: 'success', help: undefined },
-          };
-        });
-      }
-    }
-  };
-
-  const [form] = Form.useForm();
 
   const fullLayout = {
     wrapperCol: { offset: 0, span: 24 },
@@ -317,7 +265,6 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
     data: dataFetchTemplates,
     error: errorFetchTemplates,
     loading: loadingFetchTemplates,
-    refetch: refetchTemplates,
   } = useWorkspaceTemplatesQuery({
     onError: error => {
       console.error(
@@ -332,177 +279,161 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
   });
 
   const onSubmit = () => {
-    // prepare sharedVolumeMountInfos for submit (empty for personal templates)
-    let sharedVolumeMountInfos: SharedVolumeMountsListItem[] = [];
-    if (!isPersonal) {
-      const shvolMounts: ShVolFormItemValue[] =
-        form.getFieldValue('shvolss') ?? [];
-      sharedVolumeMountInfos = (shvolMounts || []).map(obj => ({
-        sharedVolume: {
-          namespace: String(obj.shvol).split('/')[0],
-          name: String(obj.shvol).split('/')[1],
-        },
-        mountPath: obj.mountpath,
-        readOnly: Boolean(obj.readonly),
-      }));
-    }
+    console.log('submit');
 
-    // Determine the final image URL
-    let finalImage = '';
-
-    if (formTemplate.imageType === EnvironmentType.VirtualMachine) {
-      // For VMs, use the selected image from internal registry
-      const selectedImage = availableImages.find(
-        i => getImageNoVer(i.name) === formTemplate.image,
-      );
-
-      if (selectedImage) {
-        finalImage = `registry.internal.crownlabs.polito.it/${selectedImage.name}`;
-      } else if (formTemplate.image) {
-        finalImage = formTemplate.image.includes('/')
-          ? formTemplate.image
-          : `registry.internal.crownlabs.polito.it/${formTemplate.image}`;
-      }
-    } else {
-      // For other types, use the external image
-      finalImage = formTemplate.registry || '';
-
-      // If it doesn't include a registry, default to internal registry
-      if (finalImage && !finalImage.includes('/')) {
-        finalImage = `registry.internal.crownlabs.polito.it/${finalImage}`;
-      }
-    }
-
-    const templateToSubmit = {
-      ...formTemplate,
-      image: finalImage,
-      sharedVolumeMounts: sharedVolumeMountInfos,
-    };
-
-    submitHandler(templateToSubmit)
-      .then(_result => {
-        setShow(false);
-        setFormTemplate(old => {
-          return {
-            ...old,
-            name: undefined,
-            imageList: undefined,
-            image: undefined,
-            imageType: undefined,
-            registry: undefined,
-          };
-        });
-        setAvailableImages([]);
-        form.setFieldsValue({
-          templatename: undefined,
-          imageList: undefined,
-          image: undefined,
-          imageType: undefined,
-          registry: undefined,
-        });
-      })
-      .catch(error => {
-        console.error('ModalCreateTemplate submitHandler error:', error);
-        apolloErrorCatcher(error);
-      });
-  };
-
-  // Environment type options
-  const environmentOptions = [
-    { value: EnvironmentType.VirtualMachine, label: 'VirtualMachine' },
-    { value: EnvironmentType.Container, label: 'Container' },
-    { value: EnvironmentType.CloudVm, label: 'CloudVM' },
-    { value: EnvironmentType.Standalone, label: 'Standalone' },
-  ];
-
-  // Handle environment type selection
-  const handleEnvironmentTypeChange = (value: ImageType) => {
-    setFormTemplate(old => ({
-      ...old,
-      imageType: value,
-      image: undefined,
-      registry: undefined,
-      imageList: undefined,
-      gui: value === EnvironmentType.CloudVm ? false : true, // CloudVM has no GUI
-    }));
-
-    // Reset form fields
-    form.setFieldsValue({
-      imageType: value,
-      image: undefined,
-      registry: undefined,
-    });
-
-    // For VMs, load the internal registry images
-    if (value === EnvironmentType.VirtualMachine) {
-      const internalRegistry = imageLists.find(
-        list => list.registryName === 'registry.internal.crownlabs.polito.it',
-      );
-
-      if (internalRegistry) {
-        const images = getImagesFromList(internalRegistry);
-        const dedupedImages = images.reduce<Image[]>((acc, img) => {
-          const base = getImageNoVer(img.name);
-          if (!acc.some(a => getImageNoVer(a.name) === base)) acc.push(img);
-          return acc;
-        }, []);
-
-        setAvailableImages(dedupedImages);
-        setFormTemplate(old => ({
-          ...old,
-          imageList: 'registry.internal.crownlabs.polito.it',
-        }));
-      }
-    } else {
-      // For other types, clear available images
-      setAvailableImages([]);
-    }
-
-    setImagesSearchOptions(undefined);
-  };
-
-  // Handle image selection (for VMs only)
-  const handleImageChange = (value: string) => {
-    setImagesSearchOptions(imagesNoVersion?.filter(s => s.includes(value)));
-
-    if (value !== formTemplate.image) {
-      const imageFound = availableImages.find(
-        i => getImageNoVer(i.name) === value,
-      );
-
-      setFormTemplate(old => ({
-        ...old,
-        image: String(value),
-        registry: imageFound?.registry,
-      }));
-
-      form.setFieldsValue({
-        image: value,
-      });
-    }
+    // // prepare sharedVolumeMountInfos for submit (empty for personal templates)
+    // let sharedVolumeMountInfos: SharedVolumeMountsListItem[] = [];
+    // if (!isPersonal) {
+    //   const shvolMounts: ShVolFormItemValue[] =
+    //     form.getFieldValue('shvolss') ?? [];
+    //   sharedVolumeMountInfos = (shvolMounts || []).map(obj => ({
+    //     sharedVolume: {
+    //       namespace: String(obj.shvol).split('/')[0],
+    //       name: String(obj.shvol).split('/')[1],
+    //     },
+    //     mountPath: obj.mountpath,
+    //     readOnly: Boolean(obj.readonly),
+    //   }));
+    // }
+    // // Determine the final image URL
+    // let finalImage = '';
+    // if (formTemplate.imageType === EnvironmentType.VirtualMachine) {
+    //   // For VMs, use the selected image from internal registry
+    //   const selectedImage = availableImages.find(
+    //     i => getImageNoVer(i.name) === formTemplate.image,
+    //   );
+    //   if (selectedImage) {
+    //     finalImage = `registry.internal.crownlabs.polito.it/${selectedImage.name}`;
+    //   } else if (formTemplate.image) {
+    //     finalImage = formTemplate.image.includes('/')
+    //       ? formTemplate.image
+    //       : `registry.internal.crownlabs.polito.it/${formTemplate.image}`;
+    //   }
+    // } else {
+    //   // For other types, use the external image
+    //   finalImage = formTemplate.registry || '';
+    //   // If it doesn't include a registry, default to internal registry
+    //   if (finalImage && !finalImage.includes('/')) {
+    //     finalImage = `registry.internal.crownlabs.polito.it/${finalImage}`;
+    //   }
+    // }
+    // const templateToSubmit = {
+    //   ...formTemplate,
+    //   image: finalImage,
+    //   sharedVolumeMounts: sharedVolumeMountInfos,
+    // };
+    // submitHandler(templateToSubmit)
+    //   .then(_result => {
+    //     setShow(false);
+    //     setFormTemplate(old => {
+    //       return {
+    //         ...old,
+    //         name: undefined,
+    //         imageList: undefined,
+    //         image: undefined,
+    //         imageType: undefined,
+    //         registry: undefined,
+    //       };
+    //     });
+    //     setAvailableImages([]);
+    //     form.setFieldsValue({
+    //       templatename: undefined,
+    //       imageList: undefined,
+    //       image: undefined,
+    //       imageType: undefined,
+    //       registry: undefined,
+    //     });
+    //   })
+    //   .catch(error => {
+    //     console.error('ModalCreateTemplate submitHandler error:', error);
+    //     apolloErrorCatcher(error);
+    //   });
   };
 
   // Initialize available images when editing an existing template
-  useEffect(() => {
-    if (
-      template?.imageType === EnvironmentType.VirtualMachine &&
-      imageLists.length
-    ) {
-      const internalRegistry = imageLists.find(
-        list => list.registryName === 'registry.internal.crownlabs.polito.it',
-      );
+  // useEffect(() => {
+  //   console.log('template trigger');
 
-      if (internalRegistry) {
-        const imgs = getImagesFromList(internalRegistry);
-        const dedupedImgs = imgs.reduce<Image[]>((acc, img) => {
-          const base = getImageNoVer(img.name);
-          if (!acc.some(a => getImageNoVer(a.name) === base)) acc.push(img);
-          return acc;
-        }, []);
-        setAvailableImages(dedupedImgs);
-      }
+  //   // if (
+  //   //   template?.environments.some(
+  //   //     env => env.environmentType === EnvironmentType.VirtualMachine,
+  //   //   ) &&
+  //   //   imageLists.length
+  //   // ) {
+  //   //   const internalRegistry = imageLists.find(
+  //   //     list => list.registryName === 'registry.internal.crownlabs.polito.it',
+  //   //   );
+
+  //   //   if (internalRegistry) {
+  //   //     const imgs = getImagesFromList(internalRegistry);
+  //   //     const dedupedImgs = imgs.reduce<Image[]>((acc, img) => {
+  //   //       const base = getImageNoVer(img.name);
+  //   //       if (!acc.some(a => getImageNoVer(a.name) === base)) acc.push(img);
+  //   //       return acc;
+  //   //     }, []);
+  //   //     setAvailableImages(dedupedImgs);
+  //   //   }
+  //   // }
+  // }, [template, imageLists]);
+
+  const [availableImages, setAvailableImages] = useState<Image[]>([]);
+
+  useEffect(() => {
+    console.log('get available images');
+
+    if (!dataImages) {
+      setAvailableImages([]);
+      return;
     }
-  }, [template?.imageType, imageLists]);
+
+    const imageLists = getImageLists(dataImages);
+    const internalRegistry = imageLists.find(
+      list => list.registryName === 'registry.internal.crownlabs.polito.it',
+    );
+
+    if (!internalRegistry) {
+      setAvailableImages([]);
+      return;
+    }
+
+    setAvailableImages(getImagesFromList(internalRegistry));
+  }, [dataImages]);
+
+  // // Handle image selection (for VMs only)
+  // const handleImageChange = (envIdx: number, image: string) => {
+  //   if (image === formTemplate.environments[envIdx].image) return;
+
+  //   const imageFound = availableImages.find(
+  //     i => getImageNoVer(i.name) === image,
+  //   );
+
+  //   setFormTemplate(old => ({
+  //     ...old,
+  //     environments: old.environments.map((env, idx) => {
+  //       if (idx === envIdx) {
+  //         return {
+  //           ...env,
+  //           image: image,
+  //           registry: imageFound?.registry,
+  //         };
+  //       }
+  //       return env;
+  //     }),
+  //   }));
+
+  //   form.setFieldsValue({
+  //     environments: formTemplate.environments.map((env, idx) => {
+  //       if (idx === envIdx) {
+  //         return {
+  //           ...env,
+  //           image: image,
+  //           registry: imageFound?.registry,
+  //         };
+  //       }
+  //       return env;
+  //     }),
+  //   });
+  // };
 
   return (
     <Modal
@@ -520,349 +451,37 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
         wrapperCol={{ span: 22 }}
         form={form}
         onSubmitCapture={onSubmit}
-        initialValues={{
-          templatename: formTemplate.name,
-          imageType: formTemplate.imageType,
-          image: formTemplate.image,
-          registry: formTemplate.registry,
-          cpu: formTemplate.cpu,
-          ram: formTemplate.ram,
-          disk: formTemplate.disk,
-        }}
+        initialValues={getInitialTemplate(template)}
       >
         <Form.Item
           {...fullLayout}
-          name="templatename"
+          name="name"
           className="mt-1"
           required
-          validateStatus={valid.name.status as 'success' | 'error'}
-          help={valid.name.help}
           validateTrigger="onChange"
           rules={[
             {
               required: true,
-              validator: nameValidator,
+              message: 'Please enter template name',
             },
-          ]}
-        >
-          <Input
-            onFocus={() => {
-              refetchTemplates({ workspaceNamespace });
-            }}
-            onChange={e =>
-              setFormTemplate(old => {
-                return { ...old, name: e.target.value };
-              })
-            }
-            placeholder="Insert template name"
-            allowClear
-          />
-        </Form.Item>
-
-        {/* Environment Type Selection - Remove {...fullLayout} */}
-        <Form.Item
-          label="Environment Type"
-          name="imageType"
-          className="mb-4" // Add margin to separate it from other components
-          required
-          rules={[
             {
-              required: true,
-              message: 'Please select an environment type',
+              validator: validateName,
             },
           ]}
-          labelCol={{ span: 6 }} // Adjust label width
-          wrapperCol={{ span: 18 }} // Adjust input width
         >
-          <Select
-            value={formTemplate.imageType}
-            onChange={handleEnvironmentTypeChange}
-            placeholder="Select environment type"
-            getPopupContainer={trigger =>
-              trigger.parentElement || document.body
-            } // Fix overlap
-          >
-            {environmentOptions.map(option => (
-              <Select.Option key={option.value} value={option.value}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <span>{option.label}</span>
-                </div>
-              </Select.Option>
-            ))}
-          </Select>
+          <Input placeholder="Insert template name" allowClear />
         </Form.Item>
 
-        {/* VM Image Selection - Remove {...fullLayout} */}
-        {formTemplate.imageType === EnvironmentType.VirtualMachine && (
-          <Form.Item
-            className="mb-4"
-            label="Image"
-            name="image"
-            required
-            validateStatus={valid.image.status as 'success' | 'error'}
-            help={valid.image.help}
-            validateTrigger="onChange"
-            rules={[
-              {
-                required: true,
-                validator: imageValidator,
-              },
-            ]}
-            labelCol={{ span: 6 }} // Adjust label width
-            wrapperCol={{ span: 18 }} // Adjust input width
-          >
-            <AutoComplete
-              options={(imagesSearchOptions ?? imagesNoVersion).map(x => ({
-                value: x,
-              }))}
-              onFocus={() => {
-                if (!imagesSearchOptions?.length)
-                  setImagesSearchOptions(imagesNoVersion);
-              }}
-              onChange={handleImageChange}
-              placeholder="Select a virtual machine image"
-              getPopupContainer={trigger =>
-                trigger.parentElement || document.body
-              }
-            />
-          </Form.Item>
-        )}
-
-        {/* External Image Input for Container, CloudVM, Standalone */}
-        {isUsingExternalImage && (
-          <>
-            {/* Information section for external image requirements */}
-            <Alert
-              message={`${formTemplate.imageType} Image Requirements`}
-              description={
-                <div>
-                  {formTemplate.imageType === EnvironmentType.Container && (
-                    <p>
-                      Must be compliant with{' '}
-                      <a
-                        href="https://github.com/netgroup-polito/CrownLabs/tree/master/provisioning/containers"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        CrownLabs container guidelines
-                      </a>
-                      . GUI-based container applications with desktop
-                      environment access via web browser.
-                    </p>
-                  )}
-                  {formTemplate.imageType === EnvironmentType.Standalone && (
-                    <p>
-                      Must be compliant with{' '}
-                      <a
-                        href="https://github.com/netgroup-polito/CrownLabs/tree/master/provisioning/standalone"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        CrownLabs standalone guidelines
-                      </a>
-                      . Web-based applications exposed over HTTP, perfect for
-                      web services, IDEs, and tools with web interfaces.
-                    </p>
-                  )}
-                  {formTemplate.imageType === EnvironmentType.CloudVm && (
-                    <p>
-                      Can be any cloud-init compatible image, but will only be
-                      accessible via SSH. Suitable for server workloads and CLI
-                      applications.
-                    </p>
-                  )}
-                </div>
-              }
-              type="info"
-              showIcon
-              style={{ marginBottom: 16 }}
-            />
-
-            {/* External Image Input */}
-            <Form.Item
-              label="External Image"
-              name="registry"
-              className="mb-4" // Add margin to separate it from other components
-              required
-              validateStatus={valid.image.status as 'success' | 'error'}
-              help={valid.image.help}
-              validateTrigger="onChange"
-              rules={[
-                {
-                  required: true,
-                  validator: imageValidator,
-                },
-              ]}
-              labelCol={{ span: 6 }} // Adjust label width
-              wrapperCol={{ span: 18 }} // Adjust input width
-              extra="Examples: ubuntu:22.04, docker.io/library/nginx:latest"
-            >
-              <Input
-                value={formTemplate.registry}
-                onChange={e =>
-                  setFormTemplate(old => ({
-                    ...old,
-                    registry: e.target.value,
-                  }))
-                }
-                placeholder="Enter image name (e.g., ubuntu:22.04)"
-                suffix={
-                  <Tooltip title="Image format: [registry/]repository[:tag]">
-                    <InfoCircleOutlined style={{ color: 'rgba(0,0,0,.45)' }} />
-                  </Tooltip>
-                }
-              />
-            </Form.Item>
-          </>
-        )}
-
-        <div className="flex justify-between items-start inline mb-6">
-          <Form.Item className="mb-4">
-            <span>GUI:</span>
-            <Checkbox
-              className="ml-3"
-              checked={formTemplate.gui}
-              disabled={
-                formTemplate.imageType === EnvironmentType.CloudVm ||
-                formTemplate.imageType === EnvironmentType.Standalone ||
-                formTemplate.imageType === EnvironmentType.Container
-              } // Disable GUI for CloudVM, Standalone, and Container
-              onChange={() =>
-                setFormTemplate(old => {
-                  return { ...old, gui: !old.gui };
-                })
-              }
-            />
-            {formTemplate.imageType === EnvironmentType.CloudVm && (
-              <div
-                style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}
-              >
-                CloudVM instances do not support GUI access
-              </div>
-            )}
-            {(formTemplate.imageType === EnvironmentType.Standalone ||
-              formTemplate.imageType === EnvironmentType.Container) && (
-              <div
-                style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}
-              >
-                Standalone and Container environments only work with GUI and not
-                SSH
-              </div>
-            )}
-          </Form.Item>
-
-          <Form.Item className="mb-4">
-            <span>Persistent: </span>
-            <Tooltip title="A persistent VM/container disk space won't be destroyed after being turned off.">
-              <Checkbox
-                className="ml-3"
-                checked={formTemplate.persistent}
-                onChange={() =>
-                  setFormTemplate(old => {
-                    return {
-                      ...old,
-                      persistent: !old.persistent,
-                      disk: !old.persistent
-                        ? template?.disk || diskInterval.min
-                        : 0,
-                    };
-                  })
-                }
-              />
-            </Tooltip>
-          </Form.Item>
-        </div>
-
-        <Form.Item labelAlign="left" className="mt-10" label="CPU" name="cpu">
-          <div className="sm:pl-3 pr-1">
-            <Slider
-              styles={{ handle: alternativeHandle }}
-              defaultValue={formTemplate.cpu}
-              tooltip={{ open: false }}
-              value={formTemplate.cpu}
-              onChange={(value: number) =>
-                setFormTemplate(old => {
-                  return { ...old, cpu: value };
-                })
-              }
-              min={cpuInterval.min}
-              max={cpuInterval.max}
-              marks={{
-                [cpuInterval.min]: `${cpuInterval.min}`,
-                [formTemplate.cpu]: `${formTemplate.cpu}`,
-                [cpuInterval.max]: `${cpuInterval.max}`,
-              }}
-              included={false}
-              step={1}
-              tipFormatter={(value?: number) => `${value} Core`}
-            />
-          </div>
-        </Form.Item>
-        <Form.Item labelAlign="left" label="RAM" name="ram">
-          <div className="sm:pl-3 pr-1">
-            <Slider
-              styles={{ handle: alternativeHandle }}
-              defaultValue={formTemplate.ram}
-              tooltip={{ open: false }}
-              value={formTemplate.ram}
-              onChange={(value: number) =>
-                setFormTemplate(old => {
-                  return { ...old, ram: value };
-                })
-              }
-              min={ramInterval.min}
-              max={ramInterval.max}
-              marks={{
-                [ramInterval.min]: `${ramInterval.min}GB`,
-                [formTemplate.ram]: `${formTemplate.ram}GB`,
-                [ramInterval.max]: `${ramInterval.max}GB`,
-              }}
-              included={false}
-              step={0.25}
-              tipFormatter={(value?: number) => `${value} GB`}
-            />
-          </div>
-        </Form.Item>
-        <Form.Item
-          labelAlign="left"
-          label="DISK"
-          name="disk"
-          className={formTemplate.persistent ? '' : 'hidden'}
-        >
-          <div className="sm:pl-3 pr-1 ">
-            <Slider
-              styles={{ handle: alternativeHandle }}
-              tooltip={{ open: false }}
-              value={formTemplate.disk}
-              defaultValue={formTemplate.disk}
-              onChange={(value: number) =>
-                setFormTemplate(old => {
-                  return { ...old, disk: value };
-                })
-              }
-              min={diskInterval.min}
-              max={diskInterval.max}
-              marks={{
-                [diskInterval.min]: `${diskInterval.min}GB`,
-                [formTemplate.disk]: `${formTemplate.disk}GB`,
-                [diskInterval.max]: `${diskInterval.max}GB`,
-              }}
-              included={false}
-              step={1}
-              tipFormatter={(value?: number) => `${value} GB`}
-            />
-          </div>
-        </Form.Item>
-
-        {!isPersonal && (
-          <ShVolFormItem workspaceNamespace={workspaceNamespace} />
-        )}
+        <EnvFormItem
+          availableImages={availableImages}
+          resources={{
+            cpu: cpuInterval,
+            ram: ramInterval,
+            disk: diskInterval,
+          }}
+          sharedVolumes={sharedVolumes}
+          isPersonal={isPersonal === undefined ? false : isPersonal}
+        />
 
         <Form.Item {...fullLayout}>
           <div className="flex justify-center">

@@ -1,15 +1,11 @@
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
-import type { FetchPolicy } from '@apollo/client';
 import { Button, Checkbox, Form, Input, Select, Space, Tooltip } from 'antd';
 import type { FC } from 'react';
-import { useContext, useState } from 'react';
-import { useWorkspaceSharedVolumesQuery } from '../../../generated-types';
-import { makeGuiSharedVolume } from '../../../utilsLogic';
 import type { SharedVolume } from '../../../utils';
-import { ErrorContext } from '../../../errorHandling/ErrorContext';
 
 export interface IShVolFormItemProps {
-  workspaceNamespace: string;
+  parentFormName: number;
+  sharedVolumes: SharedVolume[];
 }
 
 export interface ShVolFormItemValue {
@@ -18,35 +14,16 @@ export interface ShVolFormItemValue {
   readonly?: boolean;
 }
 
-const fetchPolicy_networkOnly: FetchPolicy = 'network-only';
 const fullLayout = {
   wrapperCol: { offset: 0, span: 24 },
 };
 
-const ShVolFormItem: FC<IShVolFormItemProps> = ({ ...props }) => {
-  const { workspaceNamespace } = props;
-
-  const { apolloErrorCatcher } = useContext(ErrorContext);
-
-  const [dataShVols, setDataShVols] = useState<SharedVolume[]>([]);
-
-  const { loading: loadingSharedVolumes, error: errorSharedVolumes } =
-    useWorkspaceSharedVolumesQuery({
-      variables: { workspaceNamespace },
-      onError: apolloErrorCatcher,
-      onCompleted: data =>
-        setDataShVols(
-          data.sharedvolumeList?.sharedvolumes
-            ?.map(sv => makeGuiSharedVolume(sv))
-            .sort((a, b) =>
-              (a.prettyName ?? '').localeCompare(b.prettyName ?? ''),
-            ) ?? [],
-        ),
-      fetchPolicy: fetchPolicy_networkOnly,
-    });
-
+const ShVolFormItem: FC<IShVolFormItemProps> = ({
+  parentFormName,
+  sharedVolumes,
+}) => {
   return (
-    <Form.List name="shvolss" initialValue={[]}>
+    <Form.List name={[parentFormName, 'sharedVolumeMounts']}>
       {(fields, { add, remove }) => (
         <>
           {fields.map(({ key, name, ...restField }) => (
@@ -61,13 +38,11 @@ const ShVolFormItem: FC<IShVolFormItemProps> = ({ ...props }) => {
                 rules={[{ required: true, message: 'Missing Shared Volume' }]}
               >
                 <Select placeholder="Select..." style={{ width: '160px' }}>
-                  {!loadingSharedVolumes && !errorSharedVolumes && dataShVols
-                    ? dataShVols.map(shvol => (
-                        <Select.Option key={shvol.id} value={shvol.id}>
-                          {shvol.prettyName}
-                        </Select.Option>
-                      ))
-                    : null}
+                  {sharedVolumes.map(shvol => (
+                    <Select.Option key={shvol.id} value={shvol.id}>
+                      {shvol.prettyName}
+                    </Select.Option>
+                  ))}
                 </Select>
               </Form.Item>
 
@@ -118,6 +93,7 @@ const ShVolFormItem: FC<IShVolFormItemProps> = ({ ...props }) => {
               />
             </Space>
           ))}
+
           <Form.Item {...fullLayout}>
             <Button
               type="dashed"
