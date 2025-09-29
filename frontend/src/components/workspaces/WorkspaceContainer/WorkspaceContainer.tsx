@@ -6,7 +6,8 @@ import { useContext, useState } from 'react';
 import { ErrorContext } from '../../../errorHandling/ErrorContext';
 import {
   useCreateTemplateMutation,
-  EnvironmentType,
+  type EnvironmentListListItemInput,
+  type SharedVolumeMountsListItemInput,
 } from '../../../generated-types';
 import type { Workspace } from '../../../utils';
 import { WorkspaceRole } from '../../../utils';
@@ -44,39 +45,67 @@ const WorkspaceContainer: FC<IWorkspaceContainerProps> = ({ ...props }) => {
   const isPersonal = props.isPersonalWorkspace;
 
   const submitHandler = (t: Template) => {
-    const finalWorkspaceNamespace = isPersonal
+    const workspaceNamespace = isPersonal
       ? tenantNamespace
       : workspace.namespace;
     const templateIdValue = `${workspace.name}-`;
 
-    // The image should already be properly formatted from ModalCreateTemplate
-    // But add a fallback just in case
-    let finalImage = t.image || '';
+    const environmentList: EnvironmentListListItemInput[] = [];
+    for (const formEnv of t.environments) {
+      const env: EnvironmentListListItemInput = {
+        name: formEnv.name.trim(),
+        environmentType: formEnv.environmentType,
+        image: formEnv.image,
+        mountMyDriveVolume: true,
+        resources: {
+          cpu: formEnv.cpu,
+          reservedCPUPercentage: 50,
+          memory: `${formEnv.ram * 1000}M`,
+        },
+        guiEnabled: formEnv.gui,
+      };
 
-    // Only apply fallback logic if the image doesn't already contain a registry
-    if (finalImage && !finalImage.includes('/') && !finalImage.includes('.')) {
-      finalImage = `registry.internal.crownlabs.polito.it/${finalImage}`;
+      // Handle persistent environments
+      if (formEnv.persistent) {
+        env.persistent = formEnv.persistent;
+        env.resources.disk = `${formEnv.disk * 1000}M`;
+      }
+
+      // Handle shared volume mounts
+      if (!isPersonal) {
+        const sharedVolumeMounts: SharedVolumeMountsListItemInput[] = [];
+
+        for (const formShVol of formEnv.sharedVolumeMounts) {
+          const splShVol = formShVol.sharedVolume.split('/');
+
+          const shVol: SharedVolumeMountsListItemInput = {
+            mountPath: formShVol.mountPath,
+            readOnly: formShVol.readOnly,
+            sharedVolume: {
+              namespace: splShVol[0],
+              name: splShVol[1],
+            },
+          };
+
+          sharedVolumeMounts.push(shVol);
+        }
+
+        if (sharedVolumeMounts.length > 0) {
+          env.sharedVolumeMounts = sharedVolumeMounts;
+        }
+      }
+
+      environmentList.push(env);
     }
 
     return createTemplateMutation({
       variables: {
         workspaceId: workspace.name,
-        workspaceNamespace: finalWorkspaceNamespace,
+        workspaceNamespace: workspaceNamespace,
         templateId: templateIdValue,
         templateName: t.name?.trim() || '',
         descriptionTemplate: t.name?.trim() || '',
-        image: finalImage,
-        guiEnabled: t.gui,
-        persistent: t.persistent,
-        mountMyDriveVolume: t.mountMyDrive,
-        environmentType: t.imageType || EnvironmentType.Container,
-        resources: {
-          cpu: t.cpu,
-          memory: `${t.ram * 1000}M`,
-          disk: t.disk ? `${t.disk * 1000}M` : undefined,
-          reservedCPUPercentage: 50,
-        },
-        sharedVolumeMounts: t.sharedVolumeMountInfos ?? [],
+        environmentList: environmentList,
       },
     })
       .then(result => {
