@@ -203,6 +203,14 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
     });
   };
 
+  const handleFormSubmit = async () => {
+    try {
+      await form.validateFields();
+    } catch (error) {
+      console.error('ModalCreateTemplate validation error:', error);
+    }
+  };
+
   return (
     <Modal
       destroyOnHidden={true}
@@ -217,6 +225,7 @@ const ModalCreateTemplate: FC<IModalCreateTemplateProps> = ({ ...props }) => {
       <Form
         form={form}
         onFinish={handleFormFinish}
+        onSubmitCapture={handleFormSubmit}
         initialValues={getInitialValues(template)}
       >
         <Form.Item

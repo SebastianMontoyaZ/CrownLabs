@@ -28,6 +28,8 @@ export interface ITemplatesTableRowSettingsProps {
 const TemplatesTableRowSettings = ({ ...props }) => {
   const { id, template, createInstance, editTemplate, deleteTemplate } = props;
 
+  console.log(template);
+
   return (
     <Dropdown
       menu={{
